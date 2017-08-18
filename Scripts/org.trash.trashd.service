@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=org.trash.trashd
+Exec=/usr/lib/trash/trashd
+User=root
+SystemdService=trashd.service
