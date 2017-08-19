@@ -28,5 +28,3 @@ It only depends on libsystemd (systemd/sd-bus.h).
 | Trashed | A new file has been moved to trash | s | Name of trashed file |
 | Erased | A file has been completely erased | s | Name of erased file |
 | Restored | A file has been restored | s | Name of restored file |
-
-Please note that to eg trash a directory, you should pass fullpath to the directory **without** trailing slash.

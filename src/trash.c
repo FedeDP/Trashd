@@ -1,12 +1,20 @@
 #include "../inc/trash.h"
+#include "../inc/utils.h"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <time.h>
 #include <pwd.h>
 
 static int create_if_needed(const char *name, const int mode);
+static void update_directorysizes(const char *name, const char *fullp);
 static int update_info(const char *oldpath, const char *newname);
+static int sum_size(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf);
+static long unsigned int compute_size(const char *path);
+static void load_dirs_cached_size(void);
+
+static long unsigned int total_size;
 
 /* 
  * Initializes needed directories.
@@ -31,7 +39,7 @@ int init_trash(void) {
             glob_t glob_result = {0};
             char glob_patt[PATH_MAX + 1];
             snprintf(glob_patt, PATH_MAX, "%s/*", files_path);
-            glob(glob_patt, GLOB_MARK, NULL, &glob_result);
+            glob(glob_patt, 0, NULL, &glob_result);
             number_trashed_files = glob_result.gl_pathc;
             globfree(&glob_result);
 
@@ -46,7 +54,7 @@ int init_trash(void) {
  * create them (depending on mode bit).
  */
 static int create_if_needed(const char *name, const int mode) {
-    struct stat sb;
+    struct stat sb = {0};
     char path[PATH_MAX + 1] = {0};
     
     snprintf(path, PATH_MAX, "%s/%s", trash_path, name);
@@ -72,8 +80,8 @@ static int create_if_needed(const char *name, const int mode) {
 
 int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message *reply = NULL;
-    const char *path;
-    char (*trashed_p)[PATH_MAX + 1];
+    const char *path = NULL;
+    char (*trashed_p)[PATH_MAX + 1] = NULL;
     int r, i = 0;
     
     /* Read the parameters */
@@ -88,7 +96,9 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
             char (*tmp)[PATH_MAX + 1] = realloc(trashed_p, (PATH_MAX + 1) * i);
             if (tmp) {
                 trashed_p = tmp;
-                snprintf(trashed_p[i - 1], PATH_MAX, "%s/%s", files_path, basename(path));
+                char p[PATH_MAX + 1];
+                char *str = my_basename(p, PATH_MAX, path);
+                snprintf(trashed_p[i - 1], PATH_MAX, "%s/%s", files_path, str);
                 int len = strlen(trashed_p[i - 1]);
                 int num = 1;
                 while (access(trashed_p[i - 1], F_OK) == 0) {
@@ -98,10 +108,15 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 if (rename(path, trashed_p[i - 1]) == -1) {
                     r = -errno;
                 } else {
-                    if (update_info(path, basename(trashed_p[i - 1]))) {
+                    str = my_basename(p, PATH_MAX, trashed_p[i - 1]);
+                    if (update_info(path, str)) {
                         r = -errno;
                     } else {
-                        // FIXME: update directorysizes file
+                        struct stat sb = {0};
+                        stat(trashed_p[i - 1], &sb);
+                        if (S_ISDIR(sb.st_mode)) {
+                            update_directorysizes(str, trashed_p[i - 1]);
+                        }
                     }
                 }
             } else {
@@ -120,7 +135,9 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_bus_message_new_method_return(m, &reply);
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
         for (int j = 0; j < i; j++) {
-            sd_bus_message_append(reply, "s", basename(trashed_p[j]));
+            char p[PATH_MAX + 1];
+            char *str = my_basename(p, PATH_MAX, trashed_p[j]);
+            sd_bus_message_append(reply, "s", str);
         }
         sd_bus_message_close_container(reply);
         r = sd_bus_send(NULL, reply, NULL);
@@ -129,6 +146,18 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     
     free(trashed_p);
     return r;
+}
+
+static void update_directorysizes(const char *name, const char *fullp) {
+    char p[PATH_MAX + 1] = {0};
+    snprintf(p, PATH_MAX, "%s/directorysizes", trash_path);
+    FILE *f = fopen(p, "a");
+    if (f) {
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        fprintf(f, "%lu %lu %s\n", compute_size(fullp), tv.tv_sec, name);
+        fclose(f);
+    }
 }
 
 static int update_info(const char *oldpath, const char *newname) {
@@ -152,13 +181,24 @@ static int update_info(const char *oldpath, const char *newname) {
     return -1;
 }
 
+static int sum_size(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+    total_size += sb->st_blocks * 512;
+    return 0;
+}
+
+static long unsigned int compute_size(const char *path) {
+    total_size = 0;
+    nftw(path, sum_size, 64, FTW_DEPTH | FTW_PHYS | FTW_MOUNT);
+    return total_size;
+}
+
 int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message *reply = NULL;
-    glob_t glob_result = {0};
-    char glob_patt[PATH_MAX + 1];
+    glob_t gl = {0};
+    char glob_patt[PATH_MAX + 1] = {0};
     
     snprintf(glob_patt, PATH_MAX, "%s/*", files_path);
-    int ret = glob(glob_patt, GLOB_MARK, NULL, &glob_result);
+    int ret = glob(glob_patt, GLOB_MARK, NULL, &gl);
     if (ret == GLOB_NOSPACE || ret == GLOB_ABORTED) {
         sd_bus_error_set_errno(ret_error, errno);
         return -errno;
@@ -167,8 +207,10 @@ int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     /* Reply with array response */
     sd_bus_message_new_method_return(m, &reply);
     sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
-    for (int i = 0; i < glob_result.gl_pathc; i++) {
-        sd_bus_message_append(reply, "s", basename(glob_result.gl_pathv[i]));
+    for (int i = 0; i < gl.gl_pathc; i++) {
+        char p[PATH_MAX + 1];
+        char *str = my_basename(p, PATH_MAX, gl.gl_pathv[i]);
+        sd_bus_message_append(reply, "s", str);
     }
     sd_bus_message_close_container(reply);
     int r = sd_bus_send(NULL, reply, NULL);
@@ -176,13 +218,42 @@ int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         fprintf(stderr, "%s\n", strerror(-r));
     }
     sd_bus_message_unref(reply);
-    globfree(&glob_result);
+    globfree(&gl);
     return r;
 }
 
+static void load_dirs_cached_size(void) {
+    char p[PATH_MAX + 1] = {0};
+    snprintf(p, PATH_MAX, "%s/directorysizes", trash_path);
+    FILE *f = fopen(p, "r");
+    if (f) {
+        char name[NAME_MAX + 1] = {0};
+        unsigned long int t, size;
+        while (!feof(f)) {
+            fscanf(f, "%lu %lu %s\n", &size, &t, name);
+            total_size += size;
+        }
+        fclose(f);
+    }
+}
+
 int method_size(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-    // TODO: stat on each file + directorysizes file parsing for dirs
-    return 0;
+    char glob_patt[PATH_MAX + 1] = {0};
+    glob_t gl = {0};
+    
+    snprintf(glob_patt, PATH_MAX, "%s/*", files_path);
+    glob(glob_patt, GLOB_MARK, NULL, &gl);
+    total_size = 0;
+    for (int i = 0; i < gl.gl_pathc; i++) {
+        struct stat sb = {0};
+        stat(gl.gl_pathv[i], &sb);
+        if (!S_ISDIR(sb.st_mode)) {
+            total_size += sb.st_blocks * 512;
+        }
+    }
+    globfree(&gl);
+    load_dirs_cached_size();
+    return sd_bus_reply_method_return(m, "t", total_size);
 }
 
 int method_length(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {

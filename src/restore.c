@@ -1,4 +1,5 @@
 #include "../inc/restore.h"
+#include "../inc/utils.h"
 
 static int restore(char **str, int size, sd_bus_message *reply);
 
@@ -66,9 +67,10 @@ static int restore(char **str, int size, sd_bus_message *reply) {
     
     sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
     for (int i = 0; i < size && !ret; i++) {
-        const char *filename = basename(str[i]);
+        char p[PATH_MAX + 1];
+        char *s = my_basename(p, PATH_MAX, str[i]);
         char fullpath[PATH_MAX + 1] = {0};
-        snprintf(fullpath, PATH_MAX, "%s/%s", files_path, filename);
+        snprintf(fullpath, PATH_MAX, "%s/%s", files_path, s);
         /* Remove .trashinfo extension */
         char *ptr = strstr(fullpath, ".trashinfo");
         if (ptr) {
@@ -83,9 +85,9 @@ static int restore(char **str, int size, sd_bus_message *reply) {
             if (rename(fullpath, old_path) == -1) {
                 ret = errno;
             }
-            remove(str[i]);
             sd_bus_message_append(reply, "s", old_path);
             fclose(f);
+            remove(str[i]);
         } else {
             ret = errno;
         }
