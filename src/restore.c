@@ -66,7 +66,7 @@ static int restore(char **str, int size, sd_bus_message *reply) {
     
     sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
     for (int i = 0; i < size && !ret; i++) {
-        const char *filename = strrchr(str[i], '/') + 1;
+        const char *filename = basename(str[i]);
         char fullpath[PATH_MAX + 1] = {0};
         snprintf(fullpath, PATH_MAX, "%s/%s", files_path, filename);
         /* Remove .trashinfo extension */

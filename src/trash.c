@@ -34,10 +34,8 @@ int init_trash(void) {
             glob(glob_patt, GLOB_MARK, NULL, &glob_result);
             number_trashed_files = glob_result.gl_pathc;
             globfree(&glob_result);
-            
-            // FIXME?
-//             return create_if_needed("directorysizes", S_IFREG);
-            return 0;
+
+            return create_if_needed("directorysizes", S_IFREG);
         }
     }
     return -1;
@@ -52,7 +50,7 @@ static int create_if_needed(const char *name, const int mode) {
     char path[PATH_MAX + 1] = {0};
     
     snprintf(path, PATH_MAX, "%s/%s", trash_path, name);
-    /* Check if name already exists and its mode is correct */
+    /* Check if path already exists and its mode is correct */
     if (stat(path, &sb) == 0) {
         if ((sb.st_mode & S_IFMT) != mode) {
             return -1;
@@ -64,7 +62,7 @@ static int create_if_needed(const char *name, const int mode) {
     if (mode == S_IFDIR) {
         return mkdir(path, 0700);
     }
-    int fd = open(name, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    int fd = open(path, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (fd == -1) {
         return -1;
     }
@@ -90,7 +88,7 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
             char (*tmp)[PATH_MAX + 1] = realloc(trashed_p, (PATH_MAX + 1) * i);
             if (tmp) {
                 trashed_p = tmp;
-                snprintf(trashed_p[i - 1], PATH_MAX, "%s/%s", files_path, strrchr(path, '/') + 1);
+                snprintf(trashed_p[i - 1], PATH_MAX, "%s/%s", files_path, basename(path));
                 int len = strlen(trashed_p[i - 1]);
                 int num = 1;
                 while (access(trashed_p[i - 1], F_OK) == 0) {
@@ -100,7 +98,7 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 if (rename(path, trashed_p[i - 1]) == -1) {
                     r = -errno;
                 } else {
-                    if (update_info(path, strrchr(trashed_p[i - 1], '/') + 1)) {
+                    if (update_info(path, basename(trashed_p[i - 1]))) {
                         r = -errno;
                     } else {
                         // FIXME: update directorysizes file
@@ -122,7 +120,7 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_bus_message_new_method_return(m, &reply);
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
         for (int j = 0; j < i; j++) {
-            sd_bus_message_append(reply, "s", strrchr(trashed_p[j], '/') + 1);
+            sd_bus_message_append(reply, "s", basename(trashed_p[j]));
         }
         sd_bus_message_close_container(reply);
         r = sd_bus_send(NULL, reply, NULL);
@@ -170,7 +168,7 @@ int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message_new_method_return(m, &reply);
     sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
     for (int i = 0; i < glob_result.gl_pathc; i++) {
-        sd_bus_message_append(reply, "s", strrchr(glob_result.gl_pathv[i], '/') + 1);
+        sd_bus_message_append(reply, "s", basename(glob_result.gl_pathv[i]));
     }
     sd_bus_message_close_container(reply);
     int r = sd_bus_send(NULL, reply, NULL);

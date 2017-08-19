@@ -1,5 +1,6 @@
 TODO:
 
+- [x] fix trash with folders
 - [ ] implement methods (missing: erase, size)
 - [x] implement inotify/restored/removed signals
 - [ ] update directorysizes file

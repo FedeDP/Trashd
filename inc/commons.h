@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <string.h>
 #include <systemd/sd-bus.h>
 #include <systemd/sd-bus-vtable.h>
 #include <unistd.h>
