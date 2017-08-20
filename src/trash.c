@@ -1,20 +1,11 @@
 #include "../inc/trash.h"
-#include "../inc/utils.h"
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <fcntl.h>
-#include <time.h>
 #include <pwd.h>
 
 static int create_if_needed(const char *name, const int mode);
-static void update_directorysizes(const char *name, const char *fullp);
-static int update_info(const char *oldpath, const char *newname);
-static int sum_size(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf);
-static long unsigned int compute_size(const char *path);
 static void load_dirs_cached_size(void);
-
-static long unsigned int total_size;
 
 /* 
  * Initializes needed directories.
@@ -146,50 +137,6 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     
     free(trashed_p);
     return r;
-}
-
-static void update_directorysizes(const char *name, const char *fullp) {
-    char p[PATH_MAX + 1] = {0};
-    snprintf(p, PATH_MAX, "%s/directorysizes", trash_path);
-    FILE *f = fopen(p, "a");
-    if (f) {
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        fprintf(f, "%lu %lu %s\n", compute_size(fullp), tv.tv_sec, name);
-        fclose(f);
-    }
-}
-
-static int update_info(const char *oldpath, const char *newname) {
-    char p[PATH_MAX + 1] = {0};
-    snprintf(p, PATH_MAX, "%s/%s.trashinfo", info_path, newname);
-    FILE *f = fopen(p, "w");
-    if (f) {
-        time_t rawtime;
-        struct tm *info;
-        
-        time(&rawtime);
-        info = localtime(&rawtime);
-        
-        fprintf(f, "[Trash Info]\n");
-        fprintf(f, "Path=%s\n", oldpath);
-        fprintf(f, "DeletionDate=%d-%d-%dT%d:%d:%d\n", info->tm_year + 1900, info->tm_mon + 1, info->tm_mday,
-                                                    info->tm_hour, info->tm_min, info->tm_sec);
-        fclose(f);
-        return 0;
-    }
-    return -1;
-}
-
-static int sum_size(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
-    total_size += sb->st_blocks * 512;
-    return 0;
-}
-
-static long unsigned int compute_size(const char *path) {
-    total_size = 0;
-    nftw(path, sum_size, 64, FTW_DEPTH | FTW_PHYS | FTW_MOUNT);
-    return total_size;
 }
 
 int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {

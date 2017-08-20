@@ -1,5 +1,4 @@
 #include "../inc/erase.h"
-#include "../inc/utils.h"
 
 static void rmrf(const char *name);
 static int recursive_remove(const char *path, const struct stat *sb, 
@@ -68,6 +67,9 @@ static void rmrf(const char *name) {
     /* remove trashinfo file */
     snprintf(rm_p, PATH_MAX, "%s/%s.trashinfo", info_path, name);
     remove(rm_p);
+    
+    /* Remove line from directorysizes file */
+    remove_line_from_directorysizes(name);
 }
 
 static int recursive_remove(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {

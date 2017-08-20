@@ -28,3 +28,6 @@ It only depends on libsystemd (systemd/sd-bus.h).
 | Trashed | A new file has been moved to trash | s | Name of trashed file |
 | Erased | A file has been completely erased | s | Name of erased file |
 | Restored | A file has been restored | s | Name of restored file |
+
+It still does not support different trashing directories for different filesystems.  
+This is in my TODO though.
