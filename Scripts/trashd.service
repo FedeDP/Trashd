@@ -4,7 +4,6 @@ Description=Bus service to manage trash
 [Service]
 Type=dbus
 BusName=org.trash.trashd
-User=root
 ExecStart=/usr/lib/trash/trashd
 Restart=on-failure
 RestartSec=5
