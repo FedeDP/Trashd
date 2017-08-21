@@ -1,5 +1,5 @@
 [Unit]
-Description=Bus service to manage various screen related properties (gamma, dpms, backlight)
+Description=Bus service to manage trash
 
 [Service]
 Type=dbus
