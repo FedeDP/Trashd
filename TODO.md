@@ -19,4 +19,10 @@
 - [x] What happens if a new topdir is discovered (eg a new usb external drive has been attached) and it already has a trashed file with same name as another trashed one? Possible fix: use fullpath always (in both List, Erase, Restore, Trash (as reply))
 
 - [x] udev to be globally available (do not create it every time get_correct_topdir_idx is called)
-- [ ] Trash/Erase/Restore/EraseAll/RestoreAll should not fail if an error happens: they should go to next string in [as]
+
+### Methods that receive an {as} should not failt if an error happens: they should go to next string and return a smaller array of path
+- [x] Trash
+- [x] Erase
+- [x] Restore
+- [x] EraseAll
+- [x] RestoreAll

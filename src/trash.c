@@ -80,24 +80,22 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     const char *path = NULL;
     int r;
     
-    /* Reply with array response */
-    sd_bus_message_new_method_return(m, &reply);
-    sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
-    
     /* Read the parameters */
     r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
     if (r >= 0) {
+        /* Reply with array response */
+        sd_bus_message_new_method_return(m, &reply);
+        sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
+        
         while (sd_bus_message_read(m, "s", &path) > 0 && r != -errno) {
             if (!strchr(path, '/')) {
-                sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Path must be absolute.");
-                r = -EINVAL;
-                break;
+                fprintf(stderr, "Path must be absolute: %s\n", path);
+                continue;
             }
             int i = get_correct_topdir_idx(path);
             if (i == -1) {
-                sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Could not locate topdir.");
-                r = -ENXIO;
-                break;
+                fprintf(stderr, "Could not locate topdir: %s\n", path);
+                continue;
             }
 
             char p[PATH_MAX + 1] = {0}, trashed_p[PATH_MAX + 1] = {0};
@@ -109,22 +107,20 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 sprintf(trashed_p + len, " (%d)", num);
                 num++;
             }
-            if (rename(path, trashed_p) == -1) {
-                sd_bus_error_set_errno(ret_error, errno);
-                r = -errno;
-            } else {
+            if (rename(path, trashed_p) == 0) {
                 str = my_basename(p, PATH_MAX, trashed_p);
-                if (update_info(path, str, i)) {
-                    sd_bus_error_set_errno(ret_error, errno);
-                    r = -errno;
-                } else {
+                if (update_info(path, str, i) == 0) {
                     struct stat sb = {0};
                     stat(trashed_p, &sb);
                     if (S_ISDIR(sb.st_mode)) {
                         update_directorysizes(str, trashed_p, i);
                     }
                     sd_bus_message_append(reply, "s", trashed_p);
+                } else {
+                    fprintf(stderr, "%s\n", strerror(errno));
                 }
+            } else {
+                fprintf(stderr, "%s\n", strerror(errno));
             }
         }
     } else {
@@ -133,9 +129,7 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     }
     
     sd_bus_message_close_container(reply);
-    if (!sd_bus_error_is_set(ret_error)) {
-        r = sd_bus_send(NULL, reply, NULL);
-    }
+    r = sd_bus_send(NULL, reply, NULL);
     sd_bus_message_unref(reply);
     return r;
 }

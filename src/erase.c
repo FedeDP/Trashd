@@ -1,6 +1,6 @@
 #include "../inc/erase.h"
 
-static void rmrf(const char *path, int index);
+static int rmrf(const char *path, int index);
 static int recursive_remove(const char *path, const struct stat *sb, 
                             int typeflag, struct FTW *ftwbuf);
 
@@ -15,18 +15,19 @@ int method_erase(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
         while (sd_bus_message_read(m, "s", &path) > 0 && r != EINVAL) {
             if (!strchr(path, '/')) {
-                sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Path must be absolute.");
-                r = -EINVAL;
-                break;
+                fprintf(stderr, "Path must be absolute: %s\n", path);
+                continue;
             }
             int idx = get_correct_topdir_idx(path);
             if (idx == -1) {
-                sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Could not locate topdir.");
-                r = -ENXIO;
-                break;
+                fprintf(stderr, "Could not locate topdir: %s\n", path);
+                continue;
             }
-            rmrf(path, idx);
-            sd_bus_message_append(reply, "s", path);
+            if (rmrf(path, idx) == 0) {
+                sd_bus_message_append(reply, "s", path);
+            } else {
+                fprintf(stderr, "%s\n", strerror(errno));
+            }
         }
         sd_bus_message_close_container(reply);
     } else {
@@ -54,8 +55,11 @@ int method_erase_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
         glob(glob_patt, GLOB_MARK, NULL, &gl);
     
         for (int i = 0; i < gl.gl_pathc; i++) {
-            rmrf(gl.gl_pathv[i], j);
-            sd_bus_message_append(reply, "s", gl.gl_pathv[i]);
+            if (rmrf(gl.gl_pathv[i], j) == 0) {
+                sd_bus_message_append(reply, "s", gl.gl_pathv[i]);
+            } else {
+                fprintf(stderr, "%s\n", strerror(errno));
+            }
         }
         globfree(&gl);
     }
@@ -65,18 +69,23 @@ int method_erase_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
     return ret;
 }
 
-static void rmrf(const char *path, int index) {
+static int rmrf(const char *path, int index) {
     /* remove file */
-    nftw(path, recursive_remove, 64, FTW_DEPTH | FTW_PHYS | FTW_MOUNT);
+    int ret = nftw(path, recursive_remove, 64, FTW_DEPTH | FTW_PHYS | FTW_MOUNT);
     
-    /* remove trashinfo file */
-    char p[PATH_MAX + 1] = {0}, rm_p[PATH_MAX + 1] = {0};
-    char *s = my_basename(p, PATH_MAX, path);
-    snprintf(rm_p, PATH_MAX, "%s/%s.trashinfo", trash[index].info_path, s);
-    remove(rm_p);
+    if (ret == 0) {
+        /* remove trashinfo file */
+        char p[PATH_MAX + 1] = {0}, rm_p[PATH_MAX + 1] = {0};
+        char *s = my_basename(p, PATH_MAX, path);
+        snprintf(rm_p, PATH_MAX, "%s/%s.trashinfo", trash[index].info_path, s);
+        ret = remove(rm_p);
+    }
     
-    /* Remove line from directorysizes file */
-    remove_line_from_directorysizes(path, index);
+    if (ret == 0) {
+        /* Remove line from directorysizes file */
+        remove_line_from_directorysizes(path, index);
+    }
+    return ret;
 }
 
 static int recursive_remove(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
