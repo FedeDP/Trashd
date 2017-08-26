@@ -14,10 +14,10 @@ It only depends on libsystemd (systemd/sd-bus.h).
 | Name | IN | IN values | OUT | OUT values |
 |-|:-:|-|:-:|-|
 | Trash | as | <ul><li>Array of fullpaths to be moved to trash</li></ul> | as | Trashed files |
-| Erase | as | <ul><li>Array of relative-to-trash paths to be unlinked from fs</li></ul> | as | Erased files |
+| Erase | as | <ul><li>Array of trashed files fullpaths to be unlinked from fs</li></ul> | as | Erased files |
 | EraseAll | | | as | Erased files |
-| Restore | as | <ul><li>Array of relative-to-trash paths to be restored</li></ul> | as | Restored positions for every file |
-| RestoreAll | | | as | Restored positions for every file |
+| Restore | as | <ul><li>Array of trashed files fullpaths to be restored</li></ul> | as | Restored positions for every file |
+| RestoreAll | | | as | Restored position for every file |
 | List | | | as | List of trashed files |
 | Size | | | t | Current trash size in bytes |
 | Length | | | u | Current number of trashed elements |
@@ -25,9 +25,9 @@ It only depends on libsystemd (systemd/sd-bus.h).
 ### Signals
 | Name | When | OUT | OUT values |
 |-|:-:|-|:-:|
-| Trashed | A new file has been moved to trash | s | Name of trashed file |
-| Erased | A file has been completely erased | s | Name of erased file |
-| Restored | A file has been restored | s | Name of restored file |
+| Trashed | A new file has been moved to trash | s | In-trash fullpath of trashed file |
+| Erased | A file has been completely erased | s | In-trash fullpath of erased file |
+| Restored | A file has been restored | s | In-trash fullpath of restored file |
 
 It still does not support different trashing directories for different filesystems.  
 This is in my TODO though.

@@ -2,6 +2,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <sys/inotify.h>
+#include <pwd.h>
 #include "../inc/trash.h"
 #include "../inc/restore.h"
 #include "../inc/erase.h"
@@ -15,6 +16,9 @@ static void inotify_cb(void);
 static void set_pollfd(void);
 static void main_poll(void);
 static void close_mainp(void);
+static int init_local_trash(void);
+static void add_inotify_watch(void);
+static void remove_inotify_watch(void);
 
 enum poll_idx { BUS, SIGNAL, INOTIFY, POLL_SIZE };
 enum quit_codes { LEAVE_W_ERR = -1, SIGNAL_RCV = 1 };
@@ -22,19 +26,19 @@ enum quit_codes { LEAVE_W_ERR = -1, SIGNAL_RCV = 1 };
 static const char object_path[] = "/org/trash/trashd";
 static const char bus_interface[] = "org.trash.trashd";
 static struct pollfd main_p[POLL_SIZE];
-static int quit, inot_wd, inot_fd;
+static int quit, inot_fd;
 
 static const sd_bus_vtable trashd_vtable[] = {
     SD_BUS_VTABLE_START(0),
     /* move array of fullpath to trash */
     SD_BUS_METHOD("Trash", "as", "as", method_trash, SD_BUS_VTABLE_UNPRIVILEGED),
-    /* Completely delete array of elements (must already be present in trash), relative path */
+    /* Completely delete array of elements (must already be present in trash) */
     SD_BUS_METHOD("Erase", "as", "as", method_erase, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Completely delete every trashed file */
     SD_BUS_METHOD("EraseAll", NULL, "as", method_erase_all, SD_BUS_VTABLE_UNPRIVILEGED),
-    /* Restore array of elements to their original position. Path relative to trash */
+    /* Restore array of elements to their original position */
     SD_BUS_METHOD("Restore", "as", "as", method_restore, SD_BUS_VTABLE_UNPRIVILEGED),
-    /* Restore all trashed elements to their original position. */
+    /* Restore all trashed elements to their original position */
     SD_BUS_METHOD("RestoreAll", NULL, "as", method_restore_all, SD_BUS_VTABLE_UNPRIVILEGED),
     /* List files in trash */
     SD_BUS_METHOD("List", NULL, "as", method_list, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -86,18 +90,22 @@ static void inotify_cb(void) {
     while (i < len) {
         struct inotify_event *event = (struct inotify_event *)&buffer[i];
         if (event->len) {
+            int idx = get_idx_from_wd(event->wd);
+            /* Signal fullpath */
+            char fullpath[PATH_MAX + 1] = {0};
+            snprintf(fullpath, PATH_MAX, "%s/%s", trash[idx].files_path, event->name);
             if (event->mask & IN_MOVED_TO) {
                 printf("Sending Trashed signal.\n");
-                number_trashed_files++;
-                sd_bus_emit_signal(bus, object_path, bus_interface, "Trashed", "s", event->name);
+                trash[idx].num_trashed++;
+                sd_bus_emit_signal(bus, object_path, bus_interface, "Trashed", "s", fullpath);
             } else if (event->mask & IN_DELETE) {
                 printf("Sending Erased signal.\n");
-                number_trashed_files--;
-                sd_bus_emit_signal(bus, object_path, bus_interface, "Erased", "s", event->name);
+                trash[idx].num_trashed--;
+                sd_bus_emit_signal(bus, object_path, bus_interface, "Erased", "s", fullpath);
             } else if (event->mask & IN_MOVED_FROM) {
                 printf("Sending Restored signal.\n");
-                number_trashed_files--;
-                sd_bus_emit_signal(bus, object_path, bus_interface, "Restored", "s", event->name);
+                trash[idx].num_trashed--;
+                sd_bus_emit_signal(bus, object_path, bus_interface, "Restored", "s", fullpath);
             }
         }
         i += EVENT_SIZE + event->len;
@@ -122,7 +130,7 @@ static void set_pollfd(void) {
     
     inot_fd = inotify_init();
     /* Removed, Trashed, Restored events */
-    inot_wd = inotify_add_watch(inot_fd, files_path, IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
+    add_inotify_watch();
     main_p[INOTIFY] = (struct pollfd) {
         .fd = inot_fd,
         .events = POLLIN,
@@ -171,6 +179,30 @@ static void close_mainp(void) {
     }
 }
 
+static int init_local_trash(void) {
+    int ret;
+    if (getenv("XDG_DATA_HOME")) {
+        ret = init_trash(getenv("XDG_DATA_HOME"), "/");
+    } else {
+        char path[PATH_MAX + 1];
+        snprintf(path, PATH_MAX, "%s/.local/share/", getpwuid(getuid())->pw_dir);
+        ret = init_trash(path, "/");
+    }
+    return ret;
+}
+
+static void add_inotify_watch(void) {
+    for (int i = 0; i < num_topdir; i++) {
+        trash[i].inot_wd = inotify_add_watch(inot_fd, trash[i].files_path, IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
+    }
+}
+
+static void remove_inotify_watch(void) {
+    for (int i = 0; i < num_topdir; i++) {
+        inotify_rm_watch(inot_fd, trash[i].inot_wd);
+    }
+}
+
 int main(void) {
     int r;
     
@@ -200,10 +232,12 @@ int main(void) {
         goto finish;
     }
     
-    if (init_trash() == -1) {
+    if (init_local_trash() == -1) {
         goto finish;
     }
     set_pollfd();
+    udev = udev_new();
+    
    /*
     * Need to parse initial bus messages 
     * or it'll give "Connection timed out" error
@@ -217,7 +251,9 @@ finish:
         sd_bus_flush_close_unref(bus);
     }
     /* Drop our inotify watch */
-    inotify_rm_watch(inot_fd, inot_wd);
+    remove_inotify_watch();
     close_mainp();
+    free(trash);
+    udev_unref(udev);
     return quit == LEAVE_W_ERR ? EXIT_FAILURE : EXIT_SUCCESS;
 }

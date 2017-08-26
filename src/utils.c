@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <mntent.h>
 
 static int sum_size(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf);
 static long unsigned int compute_size(const char *path);
@@ -12,9 +13,9 @@ char *my_basename(char *buff, int size, const char *str) {
     return basename(buff);
 }
 
-void update_directorysizes(const char *name, const char *fullp) {
+void update_directorysizes(const char *name, const char *fullp, int index) {
     char p[PATH_MAX + 1] = {0};
-    snprintf(p, PATH_MAX, "%s/directorysizes", trash_path);
+    snprintf(p, PATH_MAX, "%s/directorysizes", trash[index].trash_path);
     FILE *f = fopen(p, "a");
     if (f) {
         struct timeval tv;
@@ -24,9 +25,9 @@ void update_directorysizes(const char *name, const char *fullp) {
     }
 }
 
-int update_info(const char *oldpath, const char *newname) {
+int update_info(const char *oldpath, const char *newname, int index) {
     char p[PATH_MAX + 1] = {0};
-    snprintf(p, PATH_MAX, "%s/%s.trashinfo", info_path, newname);
+    snprintf(p, PATH_MAX, "%s/%s.trashinfo", trash[index].info_path, newname);
     FILE *f = fopen(p, "w");
     if (f) {
         time_t rawtime;
@@ -45,16 +46,20 @@ int update_info(const char *oldpath, const char *newname) {
     return -1;
 }
 
-void remove_line_from_directorysizes(const char *filename) {
+void remove_line_from_directorysizes(const char *path, int index) {
+    struct stat sb = {0};
+    stat(path, &sb);
+    if (!S_ISDIR(sb.st_mode)) {
+        return;
+    }
+    
     int ok = 0;
-    
     char p[PATH_MAX + 1] = {0};
-    snprintf(p, PATH_MAX, "%s/directorysizes", trash_path);
+    snprintf(p, PATH_MAX, "%s/directorysizes", trash[index].trash_path);
     FILE *f = fopen(p, "r");
-    
     if (f) {
         char ptmp[PATH_MAX + 1] = {0};
-        snprintf(ptmp, PATH_MAX, "%s/directorysizes.tmp", trash_path);
+        snprintf(ptmp, PATH_MAX, "%s/directorysizes.tmp", trash[index].trash_path);
         FILE *ftmp = fopen(ptmp, "w");
         
         if (ftmp) {
@@ -62,8 +67,8 @@ void remove_line_from_directorysizes(const char *filename) {
             char name[NAME_MAX + 1] = {0};
             unsigned long int t, size;
             while (!feof(f)) {
-                fscanf(f, "%lu %lu %s\n", &size, &t, name);
-                if (strcmp(name, filename)) {
+                fscanf(f, "%lu %lu %255s\n", &size, &t, name);
+                if (strcmp(name, strrchr(path, '/') + 1)) {
                     fprintf(ftmp, "%lu %lu %s\n", size, t, name);
                 }
             }
@@ -88,4 +93,49 @@ static long unsigned int compute_size(const char *path) {
     total_size = 0;
     nftw(path, sum_size, 64, FTW_DEPTH | FTW_PHYS | FTW_MOUNT);
     return total_size;
+}
+
+int get_correct_topdir_idx(const char *path) {
+    int ret = -1;
+    FILE *aFile = NULL;
+    struct stat info;
+    
+    stat(path, &info);
+    
+    struct udev_device *dev = udev_device_new_from_devnum(udev, 'b', info.st_dev);
+    if (dev) {
+        const char* node  = udev_device_get_devnode(dev);
+    
+        struct mntent *ent;
+    
+        aFile = setmntent("/proc/mounts", "r");
+        if (aFile == NULL) {
+            perror("setmntent");
+        } else {
+            while ((ent = getmntent(aFile))) {
+                if (!strcmp(ent->mnt_fsname, node)) {
+                    break;
+                }
+            }
+    
+            for (int i = 0; i < num_topdir && ret == -1; i++) {
+                if (!strcmp(trash[i].root_dir, ent->mnt_dir)) {
+                    ret = i;
+                }
+            }
+            endmntent(aFile);
+        }
+        udev_device_unref(dev);
+    }
+    return ret;
+}
+
+int get_idx_from_wd(const int wd) {
+    int ret = -1;
+    for (int i = 0; i < num_topdir && ret == -1; i++) {
+        if (wd == trash[i].inot_wd) {
+            ret = i;
+        }
+    }
+    return ret;
 }

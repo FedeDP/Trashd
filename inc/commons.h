@@ -7,8 +7,19 @@
 #include <glob.h>
 #include <linux/limits.h>
 #include <ftw.h>
+#include <libudev.h>
+
+struct trash_dirs {
+    char trash_path[PATH_MAX + 1];          // path to trash dir
+    char info_path[PATH_MAX + 1];           // subdir of trash dir
+    char files_path[PATH_MAX + 1];          // subdir of trash dir
+    char root_dir[PATH_MAX + 1];            // root dir for this filesystem
+    int inot_wd;                            // inotify watcher
+    int num_trashed;                        // number of trashed files in this trash
+};
 
 sd_bus *bus;
-char trash_path[PATH_MAX + 1], info_path[PATH_MAX + 1], files_path[PATH_MAX + 1];
-int number_trashed_files;
+int num_topdir;
 long unsigned int total_size;
+struct trash_dirs *trash;
+struct udev *udev;
