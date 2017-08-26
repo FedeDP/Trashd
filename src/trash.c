@@ -11,8 +11,8 @@ static void load_dirs_cached_size(int index);
  * Returns error (-1) if it cannot create needed dirs.
  */
 int init_trash(const char *path, const char *root) {
-    struct trash_dirs *tmp = NULL;
-    tmp = realloc(trash, (++num_topdir) * sizeof(struct trash_dirs));
+    struct trash_dir *tmp = NULL;
+    tmp = realloc(trash, (++num_topdir) * sizeof(struct trash_dir));
     if (tmp) {
         trash = tmp;
         strncpy(trash[num_topdir - 1].root_dir, root, PATH_MAX);

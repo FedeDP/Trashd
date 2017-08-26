@@ -46,6 +46,11 @@ int update_info(const char *oldpath, const char *newname, int index) {
     return -1;
 }
 
+/*
+ * Given a fullpath of a file, checks if it is a directory.
+ * Then, searches for it in correct directorysizes file, 
+ * and remove its line.
+ */
 void remove_line_from_directorysizes(const char *path, int index) {
     struct stat sb = {0};
     stat(path, &sb);
@@ -84,17 +89,29 @@ void remove_line_from_directorysizes(const char *path, int index) {
     }
 }
 
+/*
+ * Callback function for nftw
+ */
 static int sum_size(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
     total_size += sb->st_blocks * 512;
     return 0;
 }
 
+/*
+ * Uses nftw to compute size of directories
+ * to be cached inside directorysizes file.
+ */
 static long unsigned int compute_size(const char *path) {
     total_size = 0;
     nftw(path, sum_size, 64, FTW_DEPTH | FTW_PHYS | FTW_MOUNT);
     return total_size;
 }
 
+/*
+ * Given a path, compute its mountpoint 
+ * then searches for it inside struct trash_dir *trash array.
+ * Returns found idx
+ */
 int get_correct_topdir_idx(const char *path) {
     int ret = -1;
     FILE *aFile = NULL;
@@ -130,6 +147,11 @@ int get_correct_topdir_idx(const char *path) {
     return ret;
 }
 
+
+/*
+ * Returns idx of struct trash_dir *trash
+ * where trash[].wd = wd
+ */
 int get_idx_from_wd(const int wd) {
     int ret = -1;
     for (int i = 0; i < num_topdir && ret == -1; i++) {

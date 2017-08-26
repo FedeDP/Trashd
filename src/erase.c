@@ -19,7 +19,13 @@ int method_erase(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 r = -EINVAL;
                 break;
             }
-            rmrf(path, get_correct_topdir_idx(path));
+            int idx = get_correct_topdir_idx(path);
+            if (idx == -1) {
+                sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Could not locate topdir.");
+                r = -ENXIO;
+                break;
+            }
+            rmrf(path, idx);
             sd_bus_message_append(reply, "s", path);
         }
         sd_bus_message_close_container(reply);

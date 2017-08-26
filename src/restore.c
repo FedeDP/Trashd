@@ -1,6 +1,6 @@
 #include "../inc/restore.h"
 
-static int restore(char **str, int size, sd_bus_message *reply);
+static int restore(const char *path, int size, sd_bus_message *reply);
 
 int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message *reply = NULL;
@@ -9,8 +9,8 @@ int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     int r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
     if (r >= 0) {
         const char *path = NULL;
+        char restore_p[PATH_MAX + 1] = {0};
         /* Elements to be restored */
-        char **restore_p = NULL;
         int i = 0;
         while (sd_bus_message_read(m, "s", &path) > 0 && r != EINVAL) {
             i++;
@@ -19,12 +19,10 @@ int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 r = -EINVAL;
                 break;
             }
-            restore_p = realloc(restore_p, sizeof(char *) * i);
-            restore_p[i - 1] = malloc(PATH_MAX + 1);
             int j = get_correct_topdir_idx(path);
             char p[PATH_MAX + 1] = {0};
             char *s = my_basename(p, PATH_MAX, path);
-            snprintf(restore_p[i - 1], PATH_MAX, "%s/%s.trashinfo", trash[j].info_path, s);
+            snprintf(restore_p, PATH_MAX, "%s/%s.trashinfo", trash[j].info_path, s);
         }
         if (r != -EINVAL) {
             sd_bus_message_new_method_return(m, &reply);
@@ -34,10 +32,6 @@ int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 sd_bus_error_set_errno(ret_error, r);
             }
         }
-        for (int j = 0; j < i; j++) {
-            free(restore_p[j]);
-        }
-        free(restore_p);
         sd_bus_message_close_container(reply);
     } else {
         sd_bus_error_set_errno(ret_error, r);
@@ -66,10 +60,12 @@ int method_restore_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
         snprintf(glob_patt, PATH_MAX, "%s/*", trash[j].info_path);
         glob(glob_patt, GLOB_MARK, NULL, &gl);
     
-        ret = restore(gl.gl_pathv, gl.gl_pathc, reply);
+        for (int i = 0; i < gl.gl_pathc && !ret; i++) {
+            ret = restore(gl.gl_pathv[i], gl.gl_pathc, reply);
+        }
         globfree(&gl);
         if (ret) {
-            sd_bus_error_set_errno(ret_error, ret);
+            sd_bus_error_set_errno(ret_error, -ret);
         }
     }
     
@@ -81,14 +77,16 @@ int method_restore_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
     return ret;
 }
 
-static int restore(char **str, int size, sd_bus_message *reply) {
+static int restore(const char *path, int size, sd_bus_message *reply) {
     int ret = 0;
     
-    for (int i = 0; i < size && !ret; i++) {
-        char p[PATH_MAX + 1] = {0};
-        char *s = my_basename(p, PATH_MAX, str[i]);
-        char fullpath[PATH_MAX + 1] = {0};
-        int index = get_correct_topdir_idx(str[i]);
+    char p[PATH_MAX + 1] = {0};
+    char *s = my_basename(p, PATH_MAX, path);
+    char fullpath[PATH_MAX + 1] = {0};
+    int index = get_correct_topdir_idx(path);
+    if (index == -1) {
+        ret = -ENXIO;
+    } else {
         snprintf(fullpath, PATH_MAX, "%s/%s", trash[index].files_path, s);
         
         /* Remove .trashinfo extension */
@@ -97,7 +95,7 @@ static int restore(char **str, int size, sd_bus_message *reply) {
             *ptr = '\0';
         }
         
-        FILE *f = fopen(str[i], "r");
+        FILE *f = fopen(path, "r");
         if (f) {
             char old_path[PATH_MAX + 1] = {0};
             fscanf(f, "%*[^\n]\n"); // jump first line
@@ -109,14 +107,13 @@ static int restore(char **str, int size, sd_bus_message *reply) {
             fclose(f);
             
             /* Remove .trashinfo file */
-            remove(str[i]);
+            remove(path);
             
             /* Remove line from directorysizes file */
             remove_line_from_directorysizes(fullpath, index);
         } else {
-            ret = errno;
+            ret = -errno;
         }
     }
-    
     return ret;
 }

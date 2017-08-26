@@ -9,7 +9,7 @@
 #include <ftw.h>
 #include <libudev.h>
 
-struct trash_dirs {
+struct trash_dir {
     char trash_path[PATH_MAX + 1];          // path to trash dir
     char info_path[PATH_MAX + 1];           // subdir of trash dir
     char files_path[PATH_MAX + 1];          // subdir of trash dir
@@ -21,5 +21,5 @@ struct trash_dirs {
 sd_bus *bus;
 int num_topdir;
 long unsigned int total_size;
-struct trash_dirs *trash;
+struct trash_dir *trash;
 struct udev *udev;
