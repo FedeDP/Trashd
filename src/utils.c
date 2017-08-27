@@ -161,3 +161,13 @@ int get_idx_from_wd(const int wd) {
     }
     return ret;
 }
+
+void destroy_trash(void) {
+    for (int i = 0; i < num_topdir; i++) {
+        inotify_rm_watch(inot_fd, trash[i].inot_wd);
+        if (trash[i].slot) {
+            sd_bus_slot_unref(trash[i].slot);
+        }
+    }
+    free(trash);
+}

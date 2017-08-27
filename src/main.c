@@ -1,7 +1,6 @@
 #include <sys/signalfd.h>
 #include <poll.h>
 #include <signal.h>
-#include <sys/inotify.h>
 #include <pwd.h>
 #include "../inc/trash.h"
 #include "../inc/restore.h"
@@ -18,7 +17,6 @@ static void main_poll(void);
 static void close_mainp(void);
 static int init_local_trash(void);
 static void add_inotify_watch(void);
-static void remove_inotify_watch(void);
 
 enum poll_idx { BUS, SIGNAL, INOTIFY, POLL_SIZE };
 enum quit_codes { LEAVE_W_ERR = -1, SIGNAL_RCV = 1 };
@@ -26,7 +24,7 @@ enum quit_codes { LEAVE_W_ERR = -1, SIGNAL_RCV = 1 };
 static const char object_path[] = "/org/trash/trashd";
 static const char bus_interface[] = "org.trash.trashd";
 static struct pollfd main_p[POLL_SIZE];
-static int quit, inot_fd;
+static int quit;
 
 static const sd_bus_vtable trashd_vtable[] = {
     SD_BUS_VTABLE_START(0),
@@ -197,12 +195,6 @@ static void add_inotify_watch(void) {
     }
 }
 
-static void remove_inotify_watch(void) {
-    for (int i = 0; i < num_topdir; i++) {
-        inotify_rm_watch(inot_fd, trash[i].inot_wd);
-    }
-}
-
 int main(void) {
     int r;
     
@@ -250,10 +242,8 @@ finish:
     if (bus) {
         sd_bus_flush_close_unref(bus);
     }
-    /* Drop our inotify watch */
-    remove_inotify_watch();
+    destroy_trash();
     close_mainp();
-    free(trash);
     udev_unref(udev);
     return quit == LEAVE_W_ERR ? EXIT_FAILURE : EXIT_SUCCESS;
 }
