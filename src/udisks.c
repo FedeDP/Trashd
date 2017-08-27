@@ -2,11 +2,17 @@
 
 static void free_bus_struct(sd_bus_error *error, sd_bus_message *mess);
 
+static sd_bus *systembus;
+
+void init_udisks(void) {
+    sd_bus_default_system(&systembus);
+}
+
 void load_trashes(void) {
     sd_bus_error error = SD_BUS_ERROR_NULL;
     sd_bus_message *mess = NULL;
             
-    int r = sd_bus_call_method(bus,
+    int r = sd_bus_call_method(systembus,
                             "org.freedesktop.UDisks2",
                            "/org/freedesktop/UDisks2/Manager",
                            "org.freedesktop.UDisks2.Manager",
@@ -39,11 +45,21 @@ void load_trashes(void) {
     free_bus_struct(&error, mess);
 }
 
+int get_udisks_fd(void) {
+    return sd_bus_get_fd(systembus);
+}
+
 static void free_bus_struct(sd_bus_error *error, sd_bus_message *mess) {
     if (mess) {
         sd_bus_message_unref(mess);
     }
     if (error) {
         sd_bus_error_free(error);
+    }
+}
+
+void destroy_udisks(void) {
+    if (systembus) {
+        sd_bus_flush_close_unref(systembus);
     }
 }

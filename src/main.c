@@ -15,7 +15,6 @@ static void inotify_cb(void);
 static void set_pollfd(void);
 static void main_poll(void);
 static void close_mainp(void);
-static void add_inotify_watch(void);
 
 enum poll_idx { BUS, SIGNAL, INOTIFY, POLL_SIZE };
 enum quit_codes { LEAVE_W_ERR = -1, SIGNAL_RCV = 1 };
@@ -126,8 +125,6 @@ static void set_pollfd(void) {
     };
     
     inot_fd = inotify_init();
-    /* Removed, Trashed, Restored events */
-    add_inotify_watch();
     main_p[INOTIFY] = (struct pollfd) {
         .fd = inot_fd,
         .events = POLLIN,
@@ -176,12 +173,6 @@ static void close_mainp(void) {
     }
 }
 
-static void add_inotify_watch(void) {
-    for (int i = 0; i < num_topdir; i++) {
-        trash[i].inot_wd = inotify_add_watch(inot_fd, trash[i].files_path, IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
-    }
-}
-
 int main(void) {
     int r;
     
@@ -211,13 +202,17 @@ int main(void) {
         goto finish;
     }
     
-    init_local_trash();
-    load_trashes();
-    if (!trash) {
+    /* Create our udev instance */
+    udev = udev_new();
+    
+    /* Init udisks support */
+    init_udisks();
+    
+    if (init_local_trash()) {
         goto finish;
     }
+    load_trashes();
     set_pollfd();
-    udev = udev_new();
     
    /*
     * Need to parse initial bus messages 
@@ -234,5 +229,6 @@ finish:
     destroy_trash();
     close_mainp();
     udev_unref(udev);
+    destroy_udisks();
     return quit == LEAVE_W_ERR ? EXIT_FAILURE : EXIT_SUCCESS;
 }

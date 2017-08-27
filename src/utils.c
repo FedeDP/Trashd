@@ -52,7 +52,10 @@ int init_trash(const char *root, const char *dev_path) {
             trash[num_topdir - 1].num_trashed += glob_result.gl_pathc;
             globfree(&glob_result);
             
-            return create_if_needed("directorysizes", S_IFREG);
+            create_if_needed("directorysizes", S_IFREG);
+            /* Add the inotify watch on this trash */
+            trash[num_topdir - 1].inot_wd = inotify_add_watch(inot_fd, trash[num_topdir - 1].files_path, IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
+            return 0;
         }
     }
     return -1;
@@ -67,13 +70,13 @@ int init_local_trash(void) {
     } else {
         snprintf(home_trash, PATH_MAX, "%s/.local/share/", getpwuid(getuid())->pw_dir);
     }
-    struct stat info;
     
+    struct stat info;
     stat(home_trash, &info);
     struct udev_device *dev = udev_device_new_from_devnum(udev, 'b', info.st_dev);
     if (dev) {
         const char *node  = udev_device_get_devnode(dev);
-        init_trash(home_trash, node);
+        ret = init_trash(home_trash, node);
         udev_device_unref(dev);
     }
     
