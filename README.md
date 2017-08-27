@@ -8,6 +8,10 @@ It only depends on libsystemd (systemd/sd-bus.h).
 
     $ make
     # make install
+    
+## Runtime dep
+Top directories trashing support requires UDisks2 available at runtime. This is needed to react to newly mounted filesystems.  
+If UDisks2 is not available, topdir support will not work, ie: Trashd will only support home trash.  
 
 ## Interface
 ### Methods
@@ -28,6 +32,3 @@ It only depends on libsystemd (systemd/sd-bus.h).
 | Trashed | A new file has been moved to trash | s | In-trash fullpath of trashed file |
 | Erased | A file has been completely erased | s | In-trash fullpath of erased file |
 | Restored | A file has been restored | s | In-trash fullpath of restored file |
-
-It still does not support different trashing directories for different filesystems.  
-This is in my TODO though.

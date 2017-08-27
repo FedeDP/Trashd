@@ -14,7 +14,7 @@ struct trash_dir {
     char trash_path[PATH_MAX + 1];          // path to trash dir
     char info_path[PATH_MAX + 1];           // subdir of trash dir
     char files_path[PATH_MAX + 1];          // subdir of trash dir
-    char root_dir[PATH_MAX + 1];            // root dir for this filesystem
+    char dev_path[PATH_MAX + 1];            // root dir for this filesystem
     int inot_wd;                            // inotify watcher
     int num_trashed;                        // number of trashed files in this trash
     sd_bus_slot *slot;                      // slot for udisks2 callback match

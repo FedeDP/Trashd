@@ -1,10 +1,10 @@
 #include <sys/signalfd.h>
 #include <poll.h>
 #include <signal.h>
-#include <pwd.h>
 #include "../inc/trash.h"
 #include "../inc/restore.h"
 #include "../inc/erase.h"
+#include "../inc/udisks.h"
 
 #define EVENT_SIZE  (sizeof(struct inotify_event))
 #define BUF_LEN     (1024 * (EVENT_SIZE + 16))
@@ -15,7 +15,6 @@ static void inotify_cb(void);
 static void set_pollfd(void);
 static void main_poll(void);
 static void close_mainp(void);
-static int init_local_trash(void);
 static void add_inotify_watch(void);
 
 enum poll_idx { BUS, SIGNAL, INOTIFY, POLL_SIZE };
@@ -177,18 +176,6 @@ static void close_mainp(void) {
     }
 }
 
-static int init_local_trash(void) {
-    int ret;
-    if (getenv("XDG_DATA_HOME")) {
-        ret = init_trash(getenv("XDG_DATA_HOME"), "/");
-    } else {
-        char path[PATH_MAX + 1];
-        snprintf(path, PATH_MAX, "%s/.local/share/", getpwuid(getuid())->pw_dir);
-        ret = init_trash(path, "/");
-    }
-    return ret;
-}
-
 static void add_inotify_watch(void) {
     for (int i = 0; i < num_topdir; i++) {
         trash[i].inot_wd = inotify_add_watch(inot_fd, trash[i].files_path, IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
@@ -224,7 +211,9 @@ int main(void) {
         goto finish;
     }
     
-    if (init_local_trash() == -1) {
+    init_local_trash();
+    load_trashes();
+    if (!trash) {
         goto finish;
     }
     set_pollfd();

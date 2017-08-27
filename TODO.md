@@ -1,7 +1,7 @@
 ## TODO
 
 ### TOPDIR SUPPORT
-- [ ] org.freedesktop.UDisks2.Manager.GetBlockDevices() + foreach block device -> org.freedesktop.UDisks2.Filesystem.MountPoints. If any, it means it is mounted.
+- [x] org.freedesktop.UDisks2.Manager.GetBlockDevices() + foreach block device -> get its mountpoint. If any, it means it is mounted.
 - [ ] Add a match on org.freedesktop.UDisks2.Filesystem.MountPoint property for each block device
 - [ ] Load and call init_trash for each mounted fs
 - [ ] Check if $topdir/.Trash does exist for any external drive, otherwise try to create $topdir/.Trash-uid/ dir
