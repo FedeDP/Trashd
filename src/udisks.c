@@ -90,11 +90,13 @@ void load_trashes(void) {
                 char dev_path[PATH_MAX + 1] = {0};
                 snprintf(dev_path, PATH_MAX, "/dev/%s", ptr);
                 char *mp = get_mountpoint(dev_path);
+                char *uuid = get_uuid(dev_path);
                 /* If is mounted and it is not same device as our local home trash (trash[0] is local) */
-                if (mp && strcmp(dev_path, trash[0].dev_path)) {
-                    init_trash(mp, dev_path);
+                if (mp && uuid && strcmp(uuid, trash[0].uuid)) {
+                    init_trash(mp, uuid);
                 }
                 free(mp);
+                free(uuid);
             }
         }
     }

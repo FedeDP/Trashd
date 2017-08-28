@@ -1,6 +1,6 @@
 #include "../inc/restore.h"
 
-static int restore(const char *path, sd_bus_message *reply);
+static int restore(const char *path, sd_bus_message *reply, int idx);
 
 int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message *reply = NULL;
@@ -19,12 +19,16 @@ int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 continue;
             }
             int j = get_correct_topdir_idx(path);
-            char p[PATH_MAX + 1] = {0};
-            char *s = my_basename(p, PATH_MAX, path);
-            snprintf(restore_p, PATH_MAX, "%s/%s.trashinfo", trash[j].info_path, s);
-            int ret = restore(restore_p, reply);
-            if (ret) {
-                fprintf(stderr, "%s\n", strerror(ret));
+            if (j == -1) {
+                fprintf(stderr, "%s\n", strerror(ENXIO));
+            } else {
+                char p[PATH_MAX + 1] = {0};
+                char *s = my_basename(p, PATH_MAX, path);
+                snprintf(restore_p, PATH_MAX, "%s/%s.trashinfo", trash[j].info_path, s);
+                int ret = restore(restore_p, reply, j);
+                if (ret) {
+                    fprintf(stderr, "%s\n", strerror(ret));
+                }
             }
         }
         sd_bus_message_close_container(reply);
@@ -55,9 +59,14 @@ int method_restore_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
         glob(glob_patt, GLOB_MARK, NULL, &gl);
     
         for (int i = 0; i < gl.gl_pathc; i++) {
-            int ret = restore(gl.gl_pathv[i], reply);
-            if (ret) {
-                fprintf(stderr, "%s\n", strerror(ret));
+            int idx = get_correct_topdir_idx(gl.gl_pathv[i]);
+            if (idx == -1) {
+                fprintf(stderr, "%s\n", strerror(ENXIO));
+            } else {
+                int ret = restore(gl.gl_pathv[i], reply, idx);
+                if (ret) {
+                    fprintf(stderr, "%s\n", strerror(ret));
+                }
             }
         }
         globfree(&gl);
@@ -69,43 +78,39 @@ int method_restore_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
     return r;
 }
 
-static int restore(const char *path, sd_bus_message *reply) {
+static int restore(const char *path, sd_bus_message *reply, int idx) {
     int ret = 0;
     
     char p[PATH_MAX + 1] = {0};
     char *s = my_basename(p, PATH_MAX, path);
     char fullpath[PATH_MAX + 1] = {0};
-    int index = get_correct_topdir_idx(path);
-    if (index == -1) {
-        ret = ENXIO;
-    } else {
-        snprintf(fullpath, PATH_MAX, "%s/%s", trash[index].files_path, s);
+
+    snprintf(fullpath, PATH_MAX, "%s/%s", trash[idx].files_path, s);
         
-        /* Remove .trashinfo extension */
-        char *ptr = strstr(fullpath, ".trashinfo");
-        if (ptr) {
-            *ptr = '\0';
-        }
+    /* Remove .trashinfo extension */
+    char *ptr = strstr(fullpath, ".trashinfo");
+    if (ptr) {
+        *ptr = '\0';
+    }
         
-        FILE *f = fopen(path, "r");
-        if (f) {
-            char old_path[PATH_MAX + 1] = {0};
-            fscanf(f, "%*[^\n]\n"); // jump first line
-            fscanf(f, "Path=%4096s\n", old_path); // read origin path
-            if (rename(fullpath, old_path) == -1) {
-                ret = errno;
-            }
-            sd_bus_message_append(reply, "s", old_path);
-            fclose(f);
-            
-            /* Remove .trashinfo file */
-            remove(path);
-            
-            /* Remove line from directorysizes file */
-            remove_line_from_directorysizes(fullpath, index);
-        } else {
+    FILE *f = fopen(path, "r");
+    if (f) {
+        char old_path[PATH_MAX + 1] = {0};
+        fscanf(f, "%*[^\n]\n"); // jump first line
+        fscanf(f, "Path=%4096s\n", old_path); // read origin path
+        if (rename(fullpath, old_path) == -1) {
             ret = errno;
         }
+        sd_bus_message_append(reply, "s", old_path);
+        fclose(f);
+            
+        /* Remove .trashinfo file */
+        remove(path);
+            
+        /* Remove line from directorysizes file */
+        remove_line_from_directorysizes(fullpath, idx);
+    } else {
+        ret = errno;
     }
     return ret;
 }

@@ -21,12 +21,12 @@ char *my_basename(char *buff, int size, const char *str) {
  * Initializes needed directories.
  * Returns error (-1) if it cannot create needed dirs.
  */
-int init_trash(const char *root, const char *dev_path) {
+int init_trash(const char *root, const char *uuid) {
     struct trash_dir *tmp = NULL;
     tmp = realloc(trash, (++num_topdir) * sizeof(struct trash_dir));
     if (tmp) {
         trash = tmp;
-        strncpy(trash[num_topdir - 1].dev_path, dev_path, PATH_MAX);
+        strncpy(trash[num_topdir - 1].uuid, uuid, PATH_MAX);
         /* Init trash path to root */
         strncpy(trash[num_topdir - 1].trash_path, root, PATH_MAX);
     } else {
@@ -75,8 +75,8 @@ int init_local_trash(void) {
     stat(home_trash, &info);
     struct udev_device *dev = udev_device_new_from_devnum(udev, 'b', info.st_dev);
     if (dev) {
-        const char *node  = udev_device_get_devnode(dev);
-        ret = init_trash(home_trash, node);
+        const char *uuid  = udev_device_get_property_value(dev, "ID_FS_UUID");
+        ret = init_trash(home_trash, uuid);
         udev_device_unref(dev);
     }
     return ret;
@@ -206,8 +206,7 @@ static long unsigned int compute_size(const char *path) {
 }
 
 /*
- * Given a path, compute its mountpoint 
- * then searches for it inside struct trash_dir *trash array.
+ * Given a path, compute its filesystem UUID and search it inside our trash array.
  * Returns found idx
  */
 int get_correct_topdir_idx(const char *path) {
@@ -217,9 +216,9 @@ int get_correct_topdir_idx(const char *path) {
     stat(path, &info);
     struct udev_device *dev = udev_device_new_from_devnum(udev, 'b', info.st_dev);
     if (dev) {
-        const char *node  = udev_device_get_devnode(dev);
+        const char *uuid  = udev_device_get_property_value(dev, "ID_FS_UUID");
         for (int i = 0; i < num_topdir && ret == -1; i++) {
-            if (!strcmp(trash[i].dev_path, node)) {
+            if (!strcmp(trash[i].uuid, uuid)) {
                 ret = i;
             }
         }
@@ -228,15 +227,27 @@ int get_correct_topdir_idx(const char *path) {
     return ret;
 }
 
+/* 
+ * Given a devpath (/dev/sda1)
+ * returns trash array index that corresponds to that device.
+ */
 int get_idx_from_devpath(const char *devpath) {
-    for (int i = 0; i < num_topdir; i++) {
-        if (!strcmp(trash[i].dev_path, devpath)) {
-            return i;
+    char *uuid = get_uuid(devpath);
+    int ret = -1;
+    if (uuid) {
+        for (int i = 0; i < num_topdir && ret == -1; i++) {
+            if (!strcmp(trash[i].uuid, uuid)) {
+                ret = i;
+            }
         }
+        free(uuid);
     }
-    return -1;
+    return ret;
 }
 
+/*
+ * Returns mountpoint of a device
+ */
 char *get_mountpoint(const char *dev_path) {
     struct mntent *part;
     FILE *mtab;
@@ -254,6 +265,22 @@ char *get_mountpoint(const char *dev_path) {
     }
     endmntent(mtab);
     return ret;
+}
+
+/* 
+ * Given a devpath, returns its uuid
+ */
+char *get_uuid(const char *dev_path) {
+    char *uuid = NULL;
+    
+    struct udev_device *dev = udev_device_new_from_subsystem_sysname(udev, "block", strrchr(dev_path, '/') + 1);
+    if (dev) {
+        if (udev_device_get_property_value(dev, "ID_FS_UUID")) {
+            uuid = strdup(udev_device_get_property_value(dev, "ID_FS_UUID"));
+        }
+        udev_device_unref(dev);
+    }
+    return uuid;
 }
 
 /*
