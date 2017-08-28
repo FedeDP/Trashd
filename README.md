@@ -37,9 +37,9 @@ If UDisks2 is not available, topdir support will not work, ie: Trashd will only 
 | TrashRemoved | A trash has been removed (after a device has been unmounted) | s | Devpath of the device |
 
 #### Explanation
-These signals are sent to let FMs/DEs update their list of trashed files in their UI without needing to call "List" method again.  
-When a Trashed/Erased/Restored signal is emitted, FMs can be sure that the file has really been trashed/erased/restored, thus he can update its list removing only that file.  
-TrashAdded/TrashRemoved signals are needed so that FMs know that its list of files has to be updated.  
+These signals are sent to let FMs/DEs update their list of trashed files in their UI without needing to call "ListAll" method again.  
+When a Trashed/Erased/Restored signal is emitted, FMs can be sure that the file has really been trashed/erased/restored, thus they can update their list removing only that file.  
+TrashAdded/TrashRemoved signals are needed so that FMs know that their list of files has to be updated.  
 In case of TrashAdded, they can just call "List" method passing received devpath and add these files to their list.  
 In case of TrashRemoved, a ListAll call is the simplest way to update trashed files list.  
 
