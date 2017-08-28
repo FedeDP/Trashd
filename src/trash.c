@@ -61,7 +61,7 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     return r;
 }
 
-int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+int method_listall(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message *reply = NULL;
     
     /* Reply with array response */
@@ -87,6 +87,45 @@ int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         fprintf(stderr, "%s\n", strerror(-r));
     }
     sd_bus_message_unref(reply);
+    return r;
+}
+
+int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    sd_bus_message *reply = NULL;
+    const char *dev_path = NULL;
+    
+    int r = sd_bus_message_read(m, "s", &dev_path);
+    if (r > 0) {
+        sd_bus_message_new_method_return(m, &reply);
+        sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
+        
+        int idx = get_idx_from_devpath(dev_path);
+        if (idx != -1) {
+            glob_t gl = {0};
+            char glob_patt[PATH_MAX + 1] = {0};
+                
+            snprintf(glob_patt, PATH_MAX, "%s/*", trash[idx].files_path);
+            glob(glob_patt, GLOB_MARK, NULL, &gl);
+                
+            for (int i = 0; i < gl.gl_pathc; i++) {
+                sd_bus_message_append(reply, "s", gl.gl_pathv[i]);
+            }
+            globfree(&gl);
+        } else {
+            fprintf(stderr, "Could not locate devpath: %s\n", dev_path);
+            sd_bus_error_set_errno(ret_error, -ENODEV);
+        }
+        sd_bus_message_close_container(reply);
+        if (!sd_bus_error_is_set(ret_error)) {
+            int r = sd_bus_send(NULL, reply, NULL);
+            if (r < 0) {
+                fprintf(stderr, "%s\n", strerror(-r));
+            }
+        }
+        sd_bus_message_unref(reply);
+    } else {
+        fprintf(stderr, "Failed to parse parameters: %s\n", strerror(-r));
+    }
     return r;
 }
 

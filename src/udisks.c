@@ -1,12 +1,68 @@
 #include "../inc/udisks.h"
 
+static int change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
 static void free_bus_struct(sd_bus_error *error, sd_bus_message *mess);
 
 static sd_bus *systembus;
 
-void init_udisks(void) {
+int init_udisks(void) {
     sd_bus_default_system(&systembus);
+    
+    int r = sd_bus_add_match(systembus, NULL,
+                         "type='signal',"
+                         "sender='org.freedesktop.UDisks2',"
+                         "interface='org.freedesktop.DBus.Properties',"
+                         "member='PropertiesChanged'",
+                         change_callback, NULL);
+    
+    /* This way get_fd will return -EINVAL and poll won't poll this bus */
+    if (r < 0) {
+        destroy_udisks();
+    }
+    return r;
 }
+
+void *get_udisks_bus(void) {
+    return systembus;
+}
+
+/*
+ * If message received == org.freedesktop.UDisks2.Filesystem, then
+ * only possible signal is "mounted status has changed".
+ * So, change mounted status of device (device name = sd_bus_message_get_path(m))
+ */
+static int change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    int r;
+    const char *path;
+    const char obj[] = "org.freedesktop.UDisks2.Filesystem";
+    char devpath[PATH_MAX + 1] = {0};
+    
+    r = sd_bus_message_read(m, "s", &path);
+    if (r < 0) {
+        fprintf(stderr, "%s\n", strerror(-r));
+    } else {
+        if (!strncmp(obj, path, strlen(obj))) {
+            const char *name = sd_bus_message_get_path(m);
+            snprintf(devpath, PATH_MAX, "/dev/%s", strrchr(name, '/') + 1);
+            char *mp = get_mountpoint(devpath);
+            if (mp) {
+                /* A device has been mounted */
+                init_trash(mp, devpath);
+                sd_bus_emit_signal(bus, object_path, bus_interface, "TrashAdded", "s", devpath);
+                free(mp);
+            } else {
+                /* Device umounted */
+                int idx = get_idx_from_devpath(devpath);
+                if (idx != -1) {
+                    remove_trash(idx);
+                    sd_bus_emit_signal(bus, object_path, bus_interface, "TrashRemoved", "s", devpath);
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 
 void load_trashes(void) {
     sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -60,6 +116,6 @@ static void free_bus_struct(sd_bus_error *error, sd_bus_message *mess) {
 
 void destroy_udisks(void) {
     if (systembus) {
-        sd_bus_flush_close_unref(systembus);
+        systembus = sd_bus_flush_close_unref(systembus);
     }
 }

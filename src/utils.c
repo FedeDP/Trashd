@@ -79,7 +79,6 @@ int init_local_trash(void) {
         ret = init_trash(home_trash, node);
         udev_device_unref(dev);
     }
-    
     return ret;
 }
 
@@ -229,6 +228,15 @@ int get_correct_topdir_idx(const char *path) {
     return ret;
 }
 
+int get_idx_from_devpath(const char *devpath) {
+    for (int i = 0; i < num_topdir; i++) {
+        if (!strcmp(trash[i].dev_path, devpath)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 char *get_mountpoint(const char *dev_path) {
     struct mntent *part;
     FILE *mtab;
@@ -264,9 +272,14 @@ int get_idx_from_wd(const int wd) {
 void destroy_trash(void) {
     for (int i = 0; i < num_topdir; i++) {
         inotify_rm_watch(inot_fd, trash[i].inot_wd);
-        if (trash[i].slot) {
-            sd_bus_slot_unref(trash[i].slot);
-        }
     }
     free(trash);
+}
+
+void remove_trash(int index) {
+    inotify_rm_watch(inot_fd, trash[index].inot_wd);
+    if (index + 1 < num_topdir) {
+        memmove(&trash[index], &trash[index + 1], num_topdir - index);
+    }
+    trash = realloc(trash, (--num_topdir) * sizeof(struct trash_dir));
 }

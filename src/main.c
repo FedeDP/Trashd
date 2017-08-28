@@ -9,18 +9,16 @@
 #define EVENT_SIZE  (sizeof(struct inotify_event))
 #define BUF_LEN     (1024 * (EVENT_SIZE + 16))
 
-static void bus_cb(void);
+static void bus_cb(sd_bus *b);
 static void signal_cb(void);
 static void inotify_cb(void);
 static void set_pollfd(void);
 static void main_poll(void);
 static void close_mainp(void);
 
-enum poll_idx { BUS, SIGNAL, INOTIFY, POLL_SIZE };
+enum poll_idx { BUS, SIGNAL, INOTIFY, UDISKS, POLL_SIZE };
 enum quit_codes { LEAVE_W_ERR = -1, SIGNAL_RCV = 1 };
 
-static const char object_path[] = "/org/trash/trashd";
-static const char bus_interface[] = "org.trash.trashd";
 static struct pollfd main_p[POLL_SIZE];
 static int quit;
 
@@ -36,8 +34,10 @@ static const sd_bus_vtable trashd_vtable[] = {
     SD_BUS_METHOD("Restore", "as", "as", method_restore, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Restore all trashed elements to their original position */
     SD_BUS_METHOD("RestoreAll", NULL, "as", method_restore_all, SD_BUS_VTABLE_UNPRIVILEGED),
-    /* List files in trash */
-    SD_BUS_METHOD("List", NULL, "as", method_list, SD_BUS_VTABLE_UNPRIVILEGED),
+    /* List files in trash for device specified (/dev/sdXY type) */
+    SD_BUS_METHOD("List", "s", "as", method_list, SD_BUS_VTABLE_UNPRIVILEGED),
+    /* List all files in trash */
+    SD_BUS_METHOD("ListAll", NULL, "as", method_listall, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Size in bytes of trashed files */
     SD_BUS_METHOD("Size", NULL, "t", method_size, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Number of trashed files */
@@ -48,13 +48,23 @@ static const sd_bus_vtable trashd_vtable[] = {
     SD_BUS_SIGNAL("Erased", "s", 0),
     /* Signal emitted when some trashed files are restored (foreach) */
     SD_BUS_SIGNAL("Restored", "s", 0),
+    /*
+     * Signal emitted when a new trash has been added (eg when mounting an external usbdrive)
+     * This is needed to notify FM that they must update their list of trashed files
+     */
+    SD_BUS_SIGNAL("TrashAdded", "s", 0),
+    /*
+     * Signal emitted when a trash has been removed (eg when unmounting an usbdrive)
+     * This is needed to notify FM that they must update their list of trashed files
+     */
+    SD_BUS_SIGNAL("TrashRemoved", "s", 0),
     SD_BUS_VTABLE_END
 };
 
-static void bus_cb(void) {
+static void bus_cb(sd_bus *b) {
     int r;
     do {
-        r = sd_bus_process(bus, NULL);
+        r = sd_bus_process(b, NULL);
         if (r < 0) {
             fprintf(stderr, "Failed to process bus: %s\n", strerror(-r));
             quit = LEAVE_W_ERR;
@@ -129,6 +139,11 @@ static void set_pollfd(void) {
         .fd = inot_fd,
         .events = POLLIN,
     };
+    
+    main_p[UDISKS] = (struct pollfd) {
+        .fd = get_udisks_fd(),
+        .events = POLLIN,
+    };
 }
 
 /*
@@ -148,13 +163,16 @@ static void main_poll(void) {
                 if (main_p[i].revents & POLLIN) {
                     switch (i) {
                     case BUS:
-                        bus_cb();
+                        bus_cb(bus);
                         break;
                     case SIGNAL:
                         signal_cb();
                         break;
                     case INOTIFY:
                         inotify_cb();
+                        break;
+                    case UDISKS:
+                        bus_cb(get_udisks_bus());
                         break;
                     }
                     r--;
@@ -204,21 +222,20 @@ int main(void) {
     
     /* Create our udev instance */
     udev = udev_new();
-    
-    /* Init udisks support */
-    init_udisks();
-    
     if (init_local_trash()) {
         goto finish;
     }
-    load_trashes();
+    /* Init udisks and topdirs support */
+    if (init_udisks() >= 0) {
+        load_trashes();
+    }
     set_pollfd();
     
    /*
     * Need to parse initial bus messages 
     * or it'll give "Connection timed out" error
     */
-    bus_cb();
+    bus_cb(bus);
     main_poll();
     
 finish:
@@ -226,9 +243,9 @@ finish:
     if (bus) {
         sd_bus_flush_close_unref(bus);
     }
+    destroy_udisks();
     destroy_trash();
     close_mainp();
     udev_unref(udev);
-    destroy_udisks();
     return quit == LEAVE_W_ERR ? EXIT_FAILURE : EXIT_SUCCESS;
 }

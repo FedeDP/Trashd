@@ -17,7 +17,6 @@ struct trash_dir {
     char dev_path[PATH_MAX + 1];            // root dir for this filesystem
     int inot_wd;                            // inotify watcher
     int num_trashed;                        // number of trashed files in this trash
-    sd_bus_slot *slot;                      // slot for udisks2 callback match
 };
 
 sd_bus *bus;
@@ -25,3 +24,5 @@ int num_topdir, inot_fd;
 long unsigned int total_size;
 struct trash_dir *trash;
 struct udev *udev;
+static const char object_path[] = "/org/trash/trashd";
+static const char bus_interface[] = "org.trash.trashd";
