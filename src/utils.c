@@ -26,7 +26,7 @@ int init_trash(const char *root, const char *uuid) {
     tmp = realloc(trash, (++num_topdir) * sizeof(struct trash_dir));
     if (tmp) {
         trash = tmp;
-        strncpy(trash[num_topdir - 1].uuid, uuid, PATH_MAX);
+        strncpy(trash[num_topdir - 1].uuid, uuid, sizeof(trash[num_topdir - 1].uuid) - 1);
         /* Init trash path to root */
         strncpy(trash[num_topdir - 1].trash_path, root, PATH_MAX);
     } else {

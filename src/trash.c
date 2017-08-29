@@ -117,7 +117,7 @@ int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         }
         sd_bus_message_close_container(reply);
         if (!sd_bus_error_is_set(ret_error)) {
-            int r = sd_bus_send(NULL, reply, NULL);
+            r = sd_bus_send(NULL, reply, NULL);
             if (r < 0) {
                 fprintf(stderr, "%s\n", strerror(-r));
             }
