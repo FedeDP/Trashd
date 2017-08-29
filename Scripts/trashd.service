@@ -1,5 +1,7 @@
 [Unit]
 Description=Bus service to manage trash
+Wants=udisks2.service
+After=udisks2.service
 
 [Service]
 Type=dbus
