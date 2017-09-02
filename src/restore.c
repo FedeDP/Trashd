@@ -4,8 +4,8 @@ static int restore(const char *path, sd_bus_message *reply, int idx);
 
 int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message *reply = NULL;
+    int size = 0;
     
-    /* Read the parameters */
     int r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
     if (r >= 0) {
         const char *path = NULL;
@@ -13,7 +13,7 @@ int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         
         sd_bus_message_new_method_return(m, &reply);
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
-        while (sd_bus_message_read(m, "s", &path) > 0 && r != EINVAL) {
+        while (sd_bus_message_read(m, "s", &path) > 0) {
             if (!strchr(path, '/')) {
                 fprintf(stderr, "Path must be absolute: %s\n", path);
                 continue;
@@ -28,29 +28,36 @@ int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 int ret = restore(restore_p, reply, j);
                 if (ret) {
                     fprintf(stderr, "%s\n", strerror(ret));
+                } else {
+                    size++;
                 }
             }
         }
         sd_bus_message_close_container(reply);
     } else {
         sd_bus_error_set_errno(ret_error, r);
+        return r;
     }
     
     if (!sd_bus_error_is_set(ret_error)) {
-        r = sd_bus_send(NULL, reply, NULL);
+        if (size > 0) {
+            r = sd_bus_send(NULL, reply, NULL);
+            sd_bus_emit_signal(bus, object_path, bus_interface, "TrashChanged", NULL);
+        } else {
+            sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "No file could be restored."); 
+            r = -ENOENT;
+        }
     }
-    if (reply) {
-        sd_bus_message_unref(reply);
-    }
+    sd_bus_message_unref(reply);
     return r;
 }
 
 int method_restore_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message *reply = NULL;
+    int size = 0;
     
     sd_bus_message_new_method_return(m, &reply);
     sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
-    
     for (int j = 0; j < num_topdir; j++) {
         glob_t gl = {0};
         char glob_patt[PATH_MAX + 1] = {0};
@@ -66,6 +73,8 @@ int method_restore_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
                 int ret = restore(gl.gl_pathv[i], reply, idx);
                 if (ret) {
                     fprintf(stderr, "%s\n", strerror(ret));
+                } else {
+                    size++;
                 }
             }
         }
@@ -73,7 +82,14 @@ int method_restore_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
     }
     
     sd_bus_message_close_container(reply);
-    int r = sd_bus_send(NULL, reply, NULL);
+    int r;
+    if (size > 0) {
+        r = sd_bus_send(NULL, reply, NULL);
+        sd_bus_emit_signal(bus, object_path, bus_interface, "TrashChanged", NULL);
+    } else {
+        sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "No file could be restored."); 
+        r = -ENOENT;
+    }
     sd_bus_message_unref(reply);
     return r;
 }
@@ -97,7 +113,11 @@ static int restore(const char *path, sd_bus_message *reply, int idx) {
     if (f) {
         char old_path[PATH_MAX + 1] = {0};
         fscanf(f, "%*[^\n]\n"); // jump first line
-        fscanf(f, "Path=%4096s\n", old_path); // read origin path
+        
+        char format[32] = {0};
+        snprintf(format, sizeof(format), "Path=%%%ds\n", PATH_MAX);
+
+        fscanf(f, format, old_path);
         if (rename(fullpath, old_path) == -1) {
             ret = errno;
         }

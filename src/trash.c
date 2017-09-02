@@ -1,11 +1,12 @@
 #include "../inc/trash.h"
 
 static void load_dirs_cached_size(int index);
+static void find_trash_date(const char *path, int idx, char *date, size_t size);
 
 int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message *reply = NULL;
     const char *path = NULL;
-    int r;
+    int r, size = 0;
     
     /* Read the parameters */
     r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
@@ -14,7 +15,7 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_bus_message_new_method_return(m, &reply);
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
         
-        while (sd_bus_message_read(m, "s", &path) > 0 && r != -errno) {
+        while (sd_bus_message_read(m, "s", &path) > 0) {
             if (!strchr(path, '/')) {
                 fprintf(stderr, "Path must be absolute: %s\n", path);
                 continue;
@@ -43,6 +44,7 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                         update_directorysizes(str, trashed_p, i);
                     }
                     sd_bus_message_append(reply, "s", trashed_p);
+                    size++;
                 } else {
                     fprintf(stderr, "%s\n", strerror(errno));
                 }
@@ -56,12 +58,18 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     }
     
     sd_bus_message_close_container(reply);
-    r = sd_bus_send(NULL, reply, NULL);
+    if (size > 0) {
+        r = sd_bus_send(NULL, reply, NULL);
+        sd_bus_emit_signal(bus, object_path, bus_interface, "TrashChanged", NULL);
+    } else {
+        sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "No file could be trashed."); 
+        r = -ENOENT;
+    }
     sd_bus_message_unref(reply);
     return r;
 }
 
-int method_listall(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     sd_bus_message *reply = NULL;
     
     /* Reply with array response */
@@ -87,45 +95,6 @@ int method_listall(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         fprintf(stderr, "%s\n", strerror(-r));
     }
     sd_bus_message_unref(reply);
-    return r;
-}
-
-int method_list(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-    sd_bus_message *reply = NULL;
-    const char *dev_path = NULL;
-    
-    int r = sd_bus_message_read(m, "s", &dev_path);
-    if (r > 0) {
-        sd_bus_message_new_method_return(m, &reply);
-        sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
-        
-        int idx = get_idx_from_devpath(dev_path);
-        if (idx != -1) {
-            glob_t gl = {0};
-            char glob_patt[PATH_MAX + 1] = {0};
-                
-            snprintf(glob_patt, PATH_MAX, "%s/*", trash[idx].files_path);
-            glob(glob_patt, GLOB_MARK, NULL, &gl);
-                
-            for (int i = 0; i < gl.gl_pathc; i++) {
-                sd_bus_message_append(reply, "s", gl.gl_pathv[i]);
-            }
-            globfree(&gl);
-        } else {
-            fprintf(stderr, "Could not locate devpath: %s\n", dev_path);
-            sd_bus_error_set_errno(ret_error, -ENODEV);
-        }
-        sd_bus_message_close_container(reply);
-        if (!sd_bus_error_is_set(ret_error)) {
-            r = sd_bus_send(NULL, reply, NULL);
-            if (r < 0) {
-                fprintf(stderr, "%s\n", strerror(-r));
-            }
-        }
-        sd_bus_message_unref(reply);
-    } else {
-        fprintf(stderr, "Failed to parse parameters: %s\n", strerror(-r));
-    }
     return r;
 }
 
@@ -171,4 +140,44 @@ int method_length(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         length += trash[i].num_trashed;
     }
     return sd_bus_reply_method_return(m, "u", length);
+}
+
+int method_trashdate(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    const char *path = NULL;
+
+    int r = sd_bus_message_read(m, "s", &path);
+    if (r > 0 && strchr(path, '/')) {
+        int j = get_correct_topdir_idx(path);
+        if (j == -1) {
+            sd_bus_error_set_errno(ret_error, ENXIO);
+            return -ENXIO;
+        }
+        char date[50] = {0};
+        find_trash_date(path, j, date, sizeof(date));
+        if (!strlen(date)) {
+            sd_bus_error_set_errno(ret_error, ENOENT);
+            return -ENOENT;
+        }
+        return sd_bus_reply_method_return(m, "s", date);
+    } else {
+        sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "Error parsing argument."); 
+        return -EINVAL;
+    }
+}
+
+static void find_trash_date(const char *path, int idx, char *date, size_t size) {
+    char p[PATH_MAX + 1] = {0}, info_p[PATH_MAX + 1] = {0};
+    char *str = my_basename(p, PATH_MAX, path);
+    
+    snprintf(info_p, PATH_MAX, "%s/%s.trashinfo", trash[idx].info_path, str);
+    FILE *f = fopen(info_p, "r");
+    if (f) {
+        fscanf(f, "%*[^\n]\n"); // jump first line
+        fscanf(f, "%*[^\n]\n"); // jump second line
+        
+        char format[64] = {0};
+        snprintf(format, sizeof(format), "DeletionDate=%%%ds\n", (int)(size));
+        
+        fscanf(f, format, date);
+    }
 }

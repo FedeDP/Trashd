@@ -30,21 +30,11 @@ If UDisks2 is not available, topdir support will not work, ie: Trashd will only 
 ### Signals
 | Name | When | OUT | OUT values |
 |-|:-:|-|:-:|
-| Trashed | A new file has been moved to trash | s | In-trash fullpath of trashed file |
-| Erased | A file has been completely erased | s | In-trash fullpath of erased file |
-| Restored | A file has been restored | s | In-trash fullpath of restored file |
-| TrashAdded | A new trash has been added (after a device has been mounted) | s | Devpath of the new device (to be passed to List method) |
-| TrashRemoved | A trash has been removed (after a device has been unmounted) | s | Devpath of the device |
+| TrashChanged | A change happened in any watched trash | | |
 
 #### Explanation
-These signals are sent to let FMs/DEs update their list of trashed files in their UI without needing to call "ListAll" method again.  
-When a Trashed/Erased/Restored signal is emitted, FMs can be sure that the file has really been trashed/erased/restored, thus they can update their list removing only that file.  
-TrashAdded/TrashRemoved signals are needed so that FMs know that their list of files has to be updated.  
-In case of TrashAdded, they can just call "List" method passing received devpath and add these files to their list.  
-In case of TrashRemoved, a ListAll call is the simplest way to update trashed files list.  
-
-I can probably avoid all these signals and just send a "TrashChanged" signal, and let FMs call "ListAll" everytime. I'm still thinking about the better method.  
-Feedbacks by developers are much appreciated about this point, see: https://github.com/FedeDP/Trashd/issues/1.
+This signal are is to let FMs/DEs update their list of trashed files in their UI.  
+When this signal is received, FMs will have to call "List" method to update their list of trashed files.
 
 ## Topdirs support
 FMs implementing trashd interface should show a list of trashed files from all the mounted filesystems, plus the local one (home-trash).  

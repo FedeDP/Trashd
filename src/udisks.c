@@ -48,16 +48,15 @@ static int change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
             if (mp) {
                 /* A device has been mounted */
                 init_trash(mp, devpath);
-                sd_bus_emit_signal(bus, object_path, bus_interface, "TrashAdded", "s", devpath);
                 free(mp);
             } else {
                 /* Device umounted */
                 int idx = get_idx_from_devpath(devpath);
                 if (idx != -1) {
                     remove_trash(idx);
-                    sd_bus_emit_signal(bus, object_path, bus_interface, "TrashRemoved", "s", devpath);
                 }
             }
+            sd_bus_emit_signal(bus, object_path, bus_interface, "TrashChanged", NULL);
         }
     }
     return 0;

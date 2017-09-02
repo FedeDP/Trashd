@@ -8,7 +8,6 @@
 #include <linux/limits.h>
 #include <ftw.h>
 #include <libudev.h>
-#include <sys/inotify.h>
 
 #define UUID_LEN 36
 
@@ -17,12 +16,11 @@ struct trash_dir {
     char info_path[PATH_MAX + 1];           // subdir of trash dir
     char files_path[PATH_MAX + 1];          // subdir of trash dir
     char uuid[UUID_LEN + 1];                // UUID for this trash FS
-    int inot_wd;                            // inotify watcher
     int num_trashed;                        // number of trashed files in this trash
 };
 
 sd_bus *bus;
-int num_topdir, inot_fd;
+int num_topdir;
 long unsigned int total_size;
 struct trash_dir *trash;
 struct udev *udev;

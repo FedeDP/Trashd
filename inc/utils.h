@@ -12,6 +12,4 @@ int get_correct_topdir_idx(const char *path);
 int get_idx_from_devpath(const char *devpath);
 char *get_mountpoint(const char *dev_path);
 char *get_uuid(const char *dev_path);
-int get_idx_from_wd(const int wd);
-void destroy_trash(void);
 void remove_trash(int index);

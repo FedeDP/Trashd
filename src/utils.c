@@ -52,10 +52,7 @@ int init_trash(const char *root, const char *uuid) {
             trash[num_topdir - 1].num_trashed += glob_result.gl_pathc;
             globfree(&glob_result);
             
-            create_if_needed("directorysizes", S_IFREG);
-            /* Add the inotify watch on this trash */
-            trash[num_topdir - 1].inot_wd = inotify_add_watch(inot_fd, trash[num_topdir - 1].files_path, IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
-            return 0;
+            return create_if_needed("directorysizes", S_IFREG);
         }
     }
     return -1;
@@ -283,30 +280,12 @@ char *get_uuid(const char *dev_path) {
     return uuid;
 }
 
-/*
- * Returns idx of struct trash_dir *trash
- * where trash[].wd = wd
- */
-int get_idx_from_wd(const int wd) {
-    for (int i = 0; i < num_topdir; i++) {
-        if (wd == trash[i].inot_wd) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-void destroy_trash(void) {
-    for (int i = 0; i < num_topdir; i++) {
-        inotify_rm_watch(inot_fd, trash[i].inot_wd);
-    }
-    free(trash);
-}
-
 void remove_trash(int index) {
-    inotify_rm_watch(inot_fd, trash[index].inot_wd);
     if (index + 1 < num_topdir) {
         memmove(&trash[index], &trash[index + 1], num_topdir - index);
     }
-    trash = realloc(trash, (--num_topdir) * sizeof(struct trash_dir));
+    struct trash_dir *tmp = realloc(trash, (--num_topdir) * sizeof(struct trash_dir));
+    if (tmp) {
+        trash = tmp;
+    }
 }
