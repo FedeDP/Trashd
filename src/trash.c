@@ -158,6 +158,11 @@ int method_trashdate(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
             sd_bus_error_set_errno(ret_error, ENXIO);
             return -ENXIO;
         }
+        if (strncmp(path, trash[j].files_path, strlen(trash[j].files_path))) {
+            fprintf(stderr, "Only trashed files can show trash date: %s\n", trash[j].files_path);
+            sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "File is not trashed.");
+            return -EINVAL;
+        }
         char date[50] = {0};
         find_trash_date(path, j, date, sizeof(date));
         if (!strlen(date)) {
