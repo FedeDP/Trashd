@@ -100,15 +100,17 @@ static int create_if_needed(const char *name, const int mode, int external, char
     /* Check if path already exists and its type is correct */
     if (stat(path, &sb) == 0) {
         if ((sb.st_mode & S_IFMT) != mode) {
+            fprintf(stderr, "%s is not a dir.\n", path);
             return -1;
         }
         /* If external trash, check sticky bit */
         if (external && !strcmp(name, "Trash") && !(sb.st_mode & S_ISVTX)) {
+            fprintf(stderr, "%s has not sticky bit.\n", path);
             return -1;
-        }        
+        }
         goto ok;
     } else if (external && !strcmp(name, "Trash")) {
-        return -1; // do not use Trash dir
+        return -1; // do not use Trash dir as we must not create it
     }
     
     /* Create it if needed */

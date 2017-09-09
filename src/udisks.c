@@ -88,8 +88,12 @@ void load_trashes(void) {
                 char dev_path[PATH_MAX + 1] = {0};
                 snprintf(dev_path, PATH_MAX, "/dev/%s", ptr);
                 char *mp = get_mountpoint(dev_path);
-                /* If is mounted and it is not same device as our local home trash (trash[0] is local) */
-                if (mp && strcmp(dev_path, trash[0].devpath)) {
+                /* 
+                 * If is mounted and it is not same device 
+                 * as our local home trash (trash[0] is local)
+                 * and it is not root fs (we must not create a trashdir for root)
+                 */
+                if (mp && strcmp(mp, "/") && strcmp(dev_path, trash[0].devpath)) {
                     init_trash(mp, dev_path, 1);
                 }
                 free(mp);
