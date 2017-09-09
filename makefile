@@ -14,8 +14,8 @@ INSTALL_PROGRAM = $(INSTALL) -m755
 INSTALL_DATA = $(INSTALL) -m644
 INSTALL_DIR = $(INSTALL) -d
 SRCDIR = src/
-LIBS = -lm $(shell pkg-config --libs libsystemd)
-CFLAGS = $(shell pkg-config --cflags libsystemd) -D_GNU_SOURCE -std=c99
+LIBS = -lm $(shell pkg-config --libs libsystemd libudev)
+CFLAGS = $(shell pkg-config --cflags libsystemd libudev) -D_GNU_SOURCE -std=c99
 
 ifeq (,$(findstring $(MAKECMDGOALS),"clean install uninstall"))
 
@@ -35,7 +35,7 @@ objects:
 	@cd $(SRCDIR); $(CC) -c *.c $(CFLAGS)
 
 objects-debug:
-	@cd $(SRCDIR); $(CC) -c *.c -Wall $(CFLAGS) -Wshadow -Wtype-limits -Wstrict-overflow -fno-strict-aliasing -Wformat -Wformat-security -g
+	@cd $(SRCDIR); $(CC) -c *.c -Wall $(CFLAGS) -Wshadow -Wtype-limits -Wstrict-overflow -fno-strict-aliasing -Wno-format -g
 
 trashd: objects
 	@cd $(SRCDIR); $(CC) -o ../$(BINNAME) *.o $(LIBS)

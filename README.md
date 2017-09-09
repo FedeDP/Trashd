@@ -8,26 +8,34 @@ It only depends on libsystemd (systemd/sd-bus.h).
 
     $ make
     # make install
+    
+## Runtime dep
+Top directories trashing support requires UDisks2 available at runtime. This is needed to react to newly mounted filesystems.  
+If UDisks2 is not available, topdir support will not work, ie: Trashd will only support home trash.  
 
 ## Interface
 ### Methods
 | Name | IN | IN values | OUT | OUT values |
 |-|:-:|-|:-:|-|
 | Trash | as | <ul><li>Array of fullpaths to be moved to trash</li></ul> | as | Trashed files |
-| Erase | as | <ul><li>Array of relative-to-trash paths to be unlinked from fs</li></ul> | as | Erased files |
+| Erase | as | <ul><li>Array of trashed files fullpaths to be unlinked from fs</li></ul> | as | Erased files |
 | EraseAll | | | as | Erased files |
-| Restore | as | <ul><li>Array of relative-to-trash paths to be restored</li></ul> | as | Restored positions for every file |
-| RestoreAll | | | as | Restored positions for every file |
-| List | | | as | List of trashed files |
+| Restore | as | <ul><li>Array of trashed files fullpaths to be restored</li></ul> | as | Restored position for every file |
+| RestoreAll | | | as | Restored position for every file |
+| List | s | <ul><li>Device to list files for (/dev/sdXY)</li></ul> | as | List of trashed files for specified device |
+| ListAll | | | as | List of all trashed files |
 | Size | | | t | Current trash size in bytes |
 | Length | | | u | Current number of trashed elements |
 
 ### Signals
 | Name | When | OUT | OUT values |
 |-|:-:|-|:-:|
-| Trashed | A new file has been moved to trash | s | Name of trashed file |
-| Erased | A file has been completely erased | s | Name of erased file |
-| Restored | A file has been restored | s | Name of restored file |
+| TrashChanged | A change happened in any watched trash | | |
 
-It still does not support different trashing directories for different filesystems.  
-This is in my TODO though.
+#### Explanation
+This signal are is to let FMs/DEs update their list of trashed files in their UI.  
+When this signal is received, FMs will have to call "List" method to update their list of trashed files.
+
+## Topdirs support
+FMs implementing trashd interface should show a list of trashed files from all the mounted filesystems, plus the local one (home-trash).  
+Trashd supports this kind of trash, ie: all methods will return Size, Length and List of all files in every known (currently mounted) trash. 
