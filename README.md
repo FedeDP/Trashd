@@ -22,8 +22,8 @@ If UDisks2 is not available, topdir support will not work, ie: Trashd will only 
 | EraseAll | | | as | Erased files |
 | Restore | as | <ul><li>Array of trashed files fullpaths to be restored</li></ul> | as | Restored position for every file |
 | RestoreAll | | | as | Restored position for every file |
-| List | s | <ul><li>Device to list files for (/dev/sdXY)</li></ul> | as | List of trashed files for specified device |
-| ListAll | | | as | List of all trashed files |
+| TrashDate | s | <ul><li>Trashed file fullpath</li></ul> | s | Trashing date for the file |
+| List | | | as | List of all trashed files |
 | Size | | | t | Current trash size in bytes |
 | Length | | | u | Current number of trashed elements |
 
