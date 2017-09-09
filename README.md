@@ -17,12 +17,12 @@ If UDisks2 is not available, topdir support will not work, ie: Trashd will only 
 ### Methods
 | Name | IN | IN values | OUT | OUT values |
 |-|:-:|-|:-:|-|
-| Trash | as | <ul><li>Array of fullpaths to be moved to trash</li></ul> | as | Trashed files |
-| Erase | as | <ul><li>Array of trashed files fullpaths to be unlinked from fs</li></ul> | as | Erased files |
+| Trash | as | Array of fullpaths to be moved to trash | as | Trashed files |
+| Erase | as | Array of trashed files fullpaths to be unlinked from fs | as | Erased files |
 | EraseAll | | | as | Erased files |
-| Restore | as | <ul><li>Array of trashed files fullpaths to be restored</li></ul> | as | Restored position for every file |
+| Restore | as | Array of trashed files fullpaths to be restored | as | Restored position for every file |
 | RestoreAll | | | as | Restored position for every file |
-| TrashDate | s | <ul><li>Trashed file fullpath</li></ul> | s | Trashing date for the file |
+| TrashDate | s | Trashed file fullpath | s | Trashing date for the file |
 | List | | | as | List of all trashed files |
 | Size | | | t | Current trash size in bytes |
 | Length | | | u | Current number of trashed elements |
