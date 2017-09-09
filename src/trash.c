@@ -179,5 +179,6 @@ static void find_trash_date(const char *path, int idx, char *date, size_t size) 
         snprintf(format, sizeof(format), "DeletionDate=%%%ds\n", (int)(size));
         
         fscanf(f, format, date);
+        fclose(f);
     }
 }
