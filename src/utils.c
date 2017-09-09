@@ -11,7 +11,6 @@
 static int create_if_needed(const char *name, const int mode, int external, char *trash_path);
 static int sum_size(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf);
 static long unsigned int compute_size(const char *path);
-static char *get_devpath_from_path(const char *path);
 
 char *my_basename(char *buff, int size, const char *str) {
     strncpy(buff, str, size);
@@ -22,17 +21,14 @@ char *my_basename(char *buff, int size, const char *str) {
  * Initializes needed directories.
  * Returns error (-1) if it cannot create needed dirs.
  */
-int init_trash(const char *root, const char *uuid, int external) {
+int init_trash(const char *root, const char *devpath, int external) {
     struct trash_dir *tmp = NULL;
     tmp = realloc(trash, (++num_topdir) * sizeof(struct trash_dir));
     if (tmp) {
         trash = tmp;
-        strncpy(trash[num_topdir - 1].uuid, uuid, sizeof(trash[num_topdir - 1].uuid) - 1);
         /* Init trash path to root */
         strncpy(trash[num_topdir - 1].trash_path, root, PATH_MAX);
-        char *devpath = get_devpath_from_path(root);
         strncpy(trash[num_topdir - 1].devpath, devpath, PATH_MAX);
-        free(devpath);
     } else {
         num_topdir--;
         return -1;
@@ -64,10 +60,7 @@ int init_trash(const char *root, const char *uuid, int external) {
     
 end:
     if (ret == -1) {
-        tmp = realloc(trash, (--num_topdir) * sizeof(struct trash_dir));
-        if (tmp || !num_topdir) {
-            trash = tmp;
-        }
+        remove_trash(num_topdir - 1);
         fprintf(stderr, "%s trashdir could not be created.\n", root);
     }
     printf("Added topdir %s\n", trash[num_topdir - 1].trash_path);
@@ -88,8 +81,8 @@ int init_local_trash(void) {
     stat(home_trash, &info);
     struct udev_device *dev = udev_device_new_from_devnum(udev, 'b', info.st_dev);
     if (dev) {
-        const char *uuid  = udev_device_get_property_value(dev, "ID_FS_UUID");
-        ret = init_trash(home_trash, uuid, 0);
+        const char *node  = udev_device_get_devnode(dev);
+        ret = init_trash(home_trash, node, 0);
         udev_device_unref(dev);
     }
     return ret;
@@ -234,7 +227,8 @@ static long unsigned int compute_size(const char *path) {
 }
 
 /*
- * Given a path, compute its filesystem UUID and search it inside our trash array.
+ * Given a path, compute its mountpoint 
+ * then searches for it inside struct trash_dir *trash array.
  * Returns found idx
  */
 int get_correct_topdir_idx(const char *path) {
@@ -244,25 +238,12 @@ int get_correct_topdir_idx(const char *path) {
     stat(path, &info);
     struct udev_device *dev = udev_device_new_from_devnum(udev, 'b', info.st_dev);
     if (dev) {
-        const char *uuid  = udev_device_get_property_value(dev, "ID_FS_UUID");
+        const char *node  = udev_device_get_devnode(dev);
         for (int i = 0; i < num_topdir && ret == -1; i++) {
-            if (!strcmp(trash[i].uuid, uuid)) {
+            if (!strcmp(trash[i].devpath, node)) {
                 ret = i;
             }
         }
-        udev_device_unref(dev);
-    }
-    return ret;
-}
-
-static char *get_devpath_from_path(const char *path) {
-    struct stat info;
-    char *ret = NULL;
-    
-    stat(path, &info);
-    struct udev_device *dev = udev_device_new_from_devnum(udev, 'b', info.st_dev);
-    if (dev) {
-        ret  = strdup(udev_device_get_devnode(dev));
         udev_device_unref(dev);
     }
     return ret;
@@ -303,29 +284,13 @@ char *get_mountpoint(const char *dev_path) {
     return ret;
 }
 
-/* 
- * Given a devpath, returns its uuid
- */
-char *get_uuid(const char *dev_path) {
-    char *uuid = NULL;
-    
-    struct udev_device *dev = udev_device_new_from_subsystem_sysname(udev, "block", strrchr(dev_path, '/') + 1);
-    if (dev) {
-        if (udev_device_get_property_value(dev, "ID_FS_UUID")) {
-            uuid = strdup(udev_device_get_property_value(dev, "ID_FS_UUID"));
-        }
-        udev_device_unref(dev);
-    }
-    return uuid;
-}
-
 void remove_trash(int index) {
     printf("Removed topdir %s\n", trash[index].trash_path);
     if (index + 1 < num_topdir) {
         memmove(&trash[index], &trash[index + 1], num_topdir - index);
     }
     struct trash_dir *tmp = realloc(trash, (--num_topdir) * sizeof(struct trash_dir));
-    if (tmp) {
+    if (tmp || !num_topdir) {
         trash = tmp;
     }
 }

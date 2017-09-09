@@ -11,4 +11,4 @@
 - [x] drop all signals and inotify and just use TrashChanged
 - [X] return an error if no files could be trashed/erased/restored
 - [x] add a TrashDate method to retrieve date of trashing of a list of files
-- [ ] fix: when removing an external drive, properly remove it from struct trash
+- [x] fix: when removing an external drive, properly remove it from struct trash

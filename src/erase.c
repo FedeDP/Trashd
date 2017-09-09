@@ -15,15 +15,16 @@ int method_erase(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_bus_message_new_method_return(m, &reply);
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
         while (sd_bus_message_read(m, "s", &path) > 0) {
-            if (!strchr(path, '/')) {
-                fprintf(stderr, "Path must be absolute: %s\n", path);
-                continue;
-            }
             int idx = get_correct_topdir_idx(path);
             if (idx == -1) {
                 fprintf(stderr, "Could not locate topdir: %s\n", path);
                 continue;
             }
+            if (strncmp(path, trash[idx].files_path, strlen(trash[idx].files_path))) {
+                fprintf(stderr, "Only trashed files can be erased: %s\n", trash[idx].files_path);
+                continue;
+            }
+            
             if (rmrf(path, idx) == 0) {
                 sd_bus_message_append(reply, "s", path);
                 size++;

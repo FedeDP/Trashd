@@ -14,14 +14,15 @@ int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_bus_message_new_method_return(m, &reply);
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
         while (sd_bus_message_read(m, "s", &path) > 0) {
-            if (!strchr(path, '/')) {
-                fprintf(stderr, "Path must be absolute: %s\n", path);
-                continue;
-            }
             int j = get_correct_topdir_idx(path);
             if (j == -1) {
                 fprintf(stderr, "%s\n", strerror(ENXIO));
             } else {
+                if (strncmp(path, trash[j].files_path, strlen(trash[j].files_path))) {
+                    fprintf(stderr, "Only trashed files can be restored: %s\n", trash[j].files_path);
+                    continue;
+                }
+                
                 char p[PATH_MAX + 1] = {0};
                 char *s = my_basename(p, PATH_MAX, path);
                 snprintf(restore_p, PATH_MAX, "%s/%s.trashinfo", trash[j].info_path, s);

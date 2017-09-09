@@ -16,13 +16,13 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
         
         while (sd_bus_message_read(m, "s", &path) > 0) {
-            if (!strchr(path, '/')) {
-                fprintf(stderr, "Path must be absolute: %s\n", path);
-                continue;
-            }
             int i = get_correct_topdir_idx(path);
             if (i == -1) {
                 fprintf(stderr, "Could not locate topdir: %s\n", path);
+                continue;
+            }
+            if (!strncmp(path, trash[i].files_path, strlen(trash[i].files_path))) {
+                fprintf(stderr, "Only not trashed files can be trashed: %s\n", trash[i].files_path);
                 continue;
             }
 
@@ -106,21 +106,22 @@ static void load_dirs_cached_size(int index) {
         char name[NAME_MAX + 1] = {0};
         unsigned long int t, size;
         while (!feof(f)) {
-            fscanf(f, "%lu %lu %s\n", &size, &t, name);
-            total_size += size;
+            if (fscanf(f, "%lu %lu %s\n", &size, &t, name) == 3) {
+                total_size += size;
+            }
         }
         fclose(f);
     }
 }
 
 int method_size(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    total_size = 0;
     for (int j = 0; j < num_topdir; j++) {
         char glob_patt[PATH_MAX + 1] = {0};
         glob_t gl = {0};
         
         snprintf(glob_patt, PATH_MAX, "%s/*", trash[j].files_path);
         glob(glob_patt, GLOB_MARK, NULL, &gl);
-        total_size = 0;
         for (int i = 0; i < gl.gl_pathc; i++) {
             struct stat sb = {0};
             stat(gl.gl_pathv[i], &sb);
