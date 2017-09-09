@@ -3,7 +3,7 @@
 #include "../inc/commons.h"
 
 char *my_basename(char *buff, int size, const char *str);
-int init_trash(const char *root, const char *uuid);
+int init_trash(const char *root, const char *uuid, int external);
 int init_local_trash(void);
 void update_directorysizes(const char *name, const char *fullp, int index);
 int update_info(const char *oldpath, const char *newname, int index);

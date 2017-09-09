@@ -137,7 +137,12 @@ int method_size(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
 int method_length(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     int length = 0;
     for (int i = 0; i < num_topdir; i++) {
-        length += trash[i].num_trashed;
+        glob_t glob_result = {0};
+        char glob_patt[PATH_MAX + 1];
+        snprintf(glob_patt, PATH_MAX, "%s/*", trash[i].files_path);
+        glob(glob_patt, 0, NULL, &glob_result);
+        length += glob_result.gl_pathc;
+        globfree(&glob_result);
     }
     return sd_bus_reply_method_return(m, "u", length);
 }

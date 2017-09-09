@@ -47,7 +47,7 @@ static int change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
             char *mp = get_mountpoint(devpath);
             if (mp) {
                 /* A device has been mounted */
-                init_trash(mp, devpath);
+                init_trash(mp, devpath, 1);
                 free(mp);
             } else {
                 /* Device umounted */
@@ -61,7 +61,6 @@ static int change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
     }
     return 0;
 }
-
 
 void load_trashes(void) {
     sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -92,7 +91,7 @@ void load_trashes(void) {
                 char *uuid = get_uuid(dev_path);
                 /* If is mounted and it is not same device as our local home trash (trash[0] is local) */
                 if (mp && uuid && strcmp(uuid, trash[0].uuid)) {
-                    init_trash(mp, uuid);
+                    init_trash(mp, uuid, 1);
                 }
                 free(mp);
                 free(uuid);

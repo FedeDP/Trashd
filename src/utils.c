@@ -8,9 +8,10 @@
 #include <fcntl.h>
 #include <mntent.h>
 
-static int create_if_needed(const char *name, const int mode);
+static int create_if_needed(const char *name, const int mode, int external, char *trash_path);
 static int sum_size(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf);
 static long unsigned int compute_size(const char *path);
+static char *get_devpath_from_path(const char *path);
 
 char *my_basename(char *buff, int size, const char *str) {
     strncpy(buff, str, size);
@@ -21,7 +22,7 @@ char *my_basename(char *buff, int size, const char *str) {
  * Initializes needed directories.
  * Returns error (-1) if it cannot create needed dirs.
  */
-int init_trash(const char *root, const char *uuid) {
+int init_trash(const char *root, const char *uuid, int external) {
     struct trash_dir *tmp = NULL;
     tmp = realloc(trash, (++num_topdir) * sizeof(struct trash_dir));
     if (tmp) {
@@ -29,33 +30,48 @@ int init_trash(const char *root, const char *uuid) {
         strncpy(trash[num_topdir - 1].uuid, uuid, sizeof(trash[num_topdir - 1].uuid) - 1);
         /* Init trash path to root */
         strncpy(trash[num_topdir - 1].trash_path, root, PATH_MAX);
+        char *devpath = get_devpath_from_path(root);
+        strncpy(trash[num_topdir - 1].devpath, devpath, PATH_MAX);
+        free(devpath);
     } else {
-        free(trash);
         num_topdir--;
         return -1;
     }
     
-    /* if needed, create $XDG_DATA_HOME/Trash dir */
-    if (!create_if_needed("Trash", S_IFDIR)) {
-        /* Store correct path to trash dir */
-        strncat(trash[num_topdir - 1].trash_path, "Trash", PATH_MAX - strlen(trash[num_topdir - 1].trash_path));
-        /* Create if needed info and files subdir */
-        if (!create_if_needed("info", S_IFDIR) && !create_if_needed("files", S_IFDIR)) {
-            snprintf(trash[num_topdir - 1].info_path, PATH_MAX, "%s/info", trash[num_topdir - 1].trash_path);
-            snprintf(trash[num_topdir - 1].files_path, PATH_MAX, "%s/files", trash[num_topdir - 1].trash_path);
-            
-            /* Cache number of trashed files */
-            glob_t glob_result = {0};
-            char glob_patt[PATH_MAX + 1];
-            snprintf(glob_patt, PATH_MAX, "%s/*", trash[num_topdir - 1].files_path);
-            glob(glob_patt, 0, NULL, &glob_result);
-            trash[num_topdir - 1].num_trashed += glob_result.gl_pathc;
-            globfree(&glob_result);
-            
-            return create_if_needed("directorysizes", S_IFREG);
+    /* if needed, create Trash dir */
+    int ret = create_if_needed("Trash", S_IFDIR, external, trash[num_topdir - 1].trash_path);
+    if (external) {
+        char p[NAME_MAX + 1] = {0};
+        if (!ret) {
+            /* create Trash/$uid dir */
+            snprintf(p, NAME_MAX, "%d", getuid());
+        } else {
+            /* create Trash-$uid dir */
+            snprintf(p, NAME_MAX, "Trash-%d", getuid());
+            create_if_needed(p, S_IFDIR, external, trash[num_topdir - 1].trash_path);
+        }
+    } else if (ret) {
+        goto end;
+    }
+    /* Create if needed info and files subdir */
+    ret = create_if_needed("info", S_IFDIR, external, trash[num_topdir - 1].info_path);
+    if (!ret) {
+        ret = create_if_needed("files", S_IFDIR, external, trash[num_topdir - 1].files_path);
+        if (!ret) {
+            create_if_needed("directorysizes", S_IFREG, external, NULL);
         }
     }
-    return -1;
+    
+end:
+    if (ret == -1) {
+        tmp = realloc(trash, (--num_topdir) * sizeof(struct trash_dir));
+        if (tmp || !num_topdir) {
+            trash = tmp;
+        }
+        fprintf(stderr, "%s trashdir could not be created.\n", root);
+    }
+    printf("Added topdir %s\n", trash[num_topdir - 1].trash_path);
+    return ret;
 }
 
 int init_local_trash(void) {
@@ -65,7 +81,7 @@ int init_local_trash(void) {
     if (getenv("XDG_DATA_HOME")) {
         strncpy(home_trash, getenv("XDG_DATA_HOME"), PATH_MAX);
     } else {
-        snprintf(home_trash, PATH_MAX, "%s/.local/share/", getpwuid(getuid())->pw_dir);
+        snprintf(home_trash, PATH_MAX, "%s/.local/share", getpwuid(getuid())->pw_dir);
     }
     
     struct stat info;
@@ -73,7 +89,7 @@ int init_local_trash(void) {
     struct udev_device *dev = udev_device_new_from_devnum(udev, 'b', info.st_dev);
     if (dev) {
         const char *uuid  = udev_device_get_property_value(dev, "ID_FS_UUID");
-        ret = init_trash(home_trash, uuid);
+        ret = init_trash(home_trash, uuid, 0);
         udev_device_unref(dev);
     }
     return ret;
@@ -83,28 +99,43 @@ int init_local_trash(void) {
  * Checks if desired file/folders are available, otherwise
  * create them (depending on mode bit).
  */
-static int create_if_needed(const char *name, const int mode) {
+static int create_if_needed(const char *name, const int mode, int external, char *trash_path) {
     struct stat sb = {0};
     char path[PATH_MAX + 1] = {0};
     
     snprintf(path, PATH_MAX, "%s/%s", trash[num_topdir - 1].trash_path, name);
-    /* Check if path already exists and its mode is correct */
+    /* Check if path already exists and its type is correct */
     if (stat(path, &sb) == 0) {
         if ((sb.st_mode & S_IFMT) != mode) {
             return -1;
         }
-        return 0;
+        /* If external trash, check sticky bit */
+        if (external && !strcmp(name, "Trash") && !(sb.st_mode & S_ISVTX)) {
+            return -1;
+        }        
+        goto ok;
+    } else if (external && !strcmp(name, "Trash")) {
+        return -1; // do not use Trash dir
     }
     
     /* Create it if needed */
     if (mode == S_IFDIR) {
-        return mkdir(path, 0700);
+        if (mkdir(path, 0700) == 0) {
+            goto ok;
+        }
+        return -1;
     }
     int fd = open(path, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (fd == -1) {
         return -1;
     }
     close(fd);
+    
+ok:
+    /* Store correct path */
+    if (trash_path) {
+        strncpy(trash_path, path, PATH_MAX);
+    }
     return 0;
 }
 
@@ -224,22 +255,30 @@ int get_correct_topdir_idx(const char *path) {
     return ret;
 }
 
+static char *get_devpath_from_path(const char *path) {
+    struct stat info;
+    char *ret = NULL;
+    
+    stat(path, &info);
+    struct udev_device *dev = udev_device_new_from_devnum(udev, 'b', info.st_dev);
+    if (dev) {
+        ret  = strdup(udev_device_get_devnode(dev));
+        udev_device_unref(dev);
+    }
+    return ret;
+}
+
 /* 
  * Given a devpath (/dev/sda1)
  * returns trash array index that corresponds to that device.
  */
 int get_idx_from_devpath(const char *devpath) {
-    char *uuid = get_uuid(devpath);
-    int ret = -1;
-    if (uuid) {
-        for (int i = 0; i < num_topdir && ret == -1; i++) {
-            if (!strcmp(trash[i].uuid, uuid)) {
-                ret = i;
-            }
+    for (int i = 0; i < num_topdir; i++) {
+        if (!strcmp(trash[i].devpath, devpath)) {
+            return i;
         }
-        free(uuid);
     }
-    return ret;
+    return -1;
 }
 
 /*
@@ -281,6 +320,7 @@ char *get_uuid(const char *dev_path) {
 }
 
 void remove_trash(int index) {
+    printf("Removed topdir %s\n", trash[index].trash_path);
     if (index + 1 < num_topdir) {
         memmove(&trash[index], &trash[index + 1], num_topdir - index);
     }

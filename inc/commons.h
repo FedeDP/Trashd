@@ -16,7 +16,7 @@ struct trash_dir {
     char info_path[PATH_MAX + 1];           // subdir of trash dir
     char files_path[PATH_MAX + 1];          // subdir of trash dir
     char uuid[UUID_LEN + 1];                // UUID for this trash FS
-    int num_trashed;                        // number of trashed files in this trash
+    char devpath[PATH_MAX + 1];             // devpath (eg /dev/sda1)
 };
 
 sd_bus *bus;
