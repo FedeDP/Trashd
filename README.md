@@ -31,7 +31,11 @@ If UDisks2 is not available, topdir support will not work, ie: Trashd will only 
 Trash, Erase{All}, Restore{All} and TrashDate methods will send back an array of struct of type "(sbs)".  
 This struct is:
 
-    { .path = "path received as input", .ok = boolean true/false, .output = ok ? "output value" : "error string" }.  
+    { 
+        .path = string: "path received as input", 
+        .ok = boolean: false if error happened, 
+        .output = string: ok ? "output value" : "error string" 
+    }
 
 This way, for each input value, developer can know if any error happened by just parsing ok boolean value, and they can get a proper error string too.
 
