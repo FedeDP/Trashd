@@ -31,7 +31,7 @@ static const sd_bus_vtable trashd_vtable[] = {
     /* Restore all trashed elements to their original position */
     SD_BUS_METHOD("RestoreAll", NULL, "as", method_restore_all, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Get trashing date of file */
-    SD_BUS_METHOD("TrashDate", "s", "s", method_trashdate, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("TrashDate", "as", "a(sbs)", method_trashdate, SD_BUS_VTABLE_UNPRIVILEGED),
     /* List all files in trash */
     SD_BUS_METHOD("List", NULL, "as", method_list, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Size in bytes of trashed files */

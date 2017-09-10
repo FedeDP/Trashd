@@ -8,10 +8,8 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     const char *path = NULL;
     int r, size = 0;
     
-    /* Read the parameters */
     r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
     if (r >= 0) {
-        /* Reply with array response */
         sd_bus_message_new_method_return(m, &reply);
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
         
@@ -150,30 +148,42 @@ int method_length(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
 
 int method_trashdate(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     const char *path = NULL;
+    sd_bus_message *reply = NULL;
 
-    int r = sd_bus_message_read(m, "s", &path);
-    if (r > 0 && strchr(path, '/')) {
-        int j = get_correct_topdir_idx(path);
-        if (j == -1) {
-            sd_bus_error_set_errno(ret_error, ENXIO);
-            return -ENXIO;
+    int r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
+    if (r >= 0) {
+        sd_bus_message_new_method_return(m, &reply);
+        sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "(sbs)");
+        
+        while (sd_bus_message_read(m, "s", &path) > 0) {
+            char *err = NULL;
+            char date[50] = {0};
+            sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "sbs");
+            
+            int j = get_correct_topdir_idx(path);
+            if (j == -1) {
+                fprintf(stderr, "Could not locate %s topdir.\n", path);
+                err = strdup("Could not locate topdir.");
+            } else if (strncmp(path, trash[j].files_path, strlen(trash[j].files_path))) {
+                fprintf(stderr, "Only trashed files can show trash date: %s\n", trash[j].files_path);
+                err = strdup("File is not trashed.");
+            } else {
+                find_trash_date(path, j, date, sizeof(date));
+                if (!strlen(date)) {
+                    err = strdup("Could not locate trash date.");
+                }
+            }
+            sd_bus_message_append(reply, "sbs", path, strlen(date), strlen(date) ? date : err);
+            sd_bus_message_close_container(reply);
+            free(err);
         }
-        if (strncmp(path, trash[j].files_path, strlen(trash[j].files_path))) {
-            fprintf(stderr, "Only trashed files can show trash date: %s\n", trash[j].files_path);
-            sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "File is not trashed.");
-            return -EINVAL;
-        }
-        char date[50] = {0};
-        find_trash_date(path, j, date, sizeof(date));
-        if (!strlen(date)) {
-            sd_bus_error_set_errno(ret_error, ENOENT);
-            return -ENOENT;
-        }
-        return sd_bus_reply_method_return(m, "s", date);
+        sd_bus_message_close_container(reply);
+        r = sd_bus_send(NULL, reply, NULL);
+        sd_bus_message_unref(reply);
     } else {
-        sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "Error parsing argument."); 
-        return -EINVAL;
+        fprintf(stderr, "Failed to parse parameters: %s\n", strerror(-r));
     }
+    return r;
 }
 
 static void find_trash_date(const char *path, int idx, char *date, size_t size) {

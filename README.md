@@ -22,10 +22,18 @@ If UDisks2 is not available, topdir support will not work, ie: Trashd will only 
 | EraseAll | | | as | Erased files |
 | Restore | as | Array of trashed files fullpaths to be restored | as | Restored position for every file |
 | RestoreAll | | | as | Restored position for every file |
-| TrashDate | s | Trashed file fullpath | s | Trashing date for the file |
+| TrashDate | as | List of trashed file fullpaths | a(sbs) | Trashing dates for each file, or error string |
 | List | | | as | List of all trashed files |
 | Size | | | t | Current trash size in bytes |
 | Length | | | u | Current number of trashed elements |
+
+#### OUT struct
+Trash, Erase{All}, Restore{All} and TrashDate methods will send back an array of struct of type "(sbs)".  
+This struct is:
+
+    { .path = "path received as input", .ok = boolean true/false, .output = ok ? "output value" : "error string" }.  
+
+This way, for each input value, developer can know if any error happened by just parsing ok boolean value, and they can get a proper error string too.
 
 ### Signals
 | Name | When | OUT | OUT values |
