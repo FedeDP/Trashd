@@ -5,4 +5,10 @@
 
 ### Finally
 
+- [ ] Make it deb available
+- [ ] Add it to aur
+- [ ] add it to travis
+- [x] add a small test bash script
+- [ ] add a small c demo application
+- [ ] add COPYING file and gpl license header
 - [ ] Propose it as a standard implementation

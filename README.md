@@ -54,3 +54,16 @@ The signal is sent whenever a file is trashed, erased, restored, or whenever a n
 ## Topdirs support
 FMs implementing trashd interface should show a list of trashed files from all the mounted filesystems, plus the local one (home-trash).  
 Trashd supports this kind of trash, ie: all methods will return Size, Length and List of all files in every known (currently mounted) trash. 
+
+## Performance
+The (very simple) [test.sh](https://github.com/FedeDP/Trashd/blob/master/test.sh) script tries to understand Trashd performance.  
+It obviously computes performance on main user trash folder, that will surely be most used one.  
+Its result, on my pc, are the following:  
+
+    ./test.sh 
+    Files creation time: 6047 ms
+    Trashing time: 454 ms
+    Listing time: 26 ms
+    Erasing time: 120 ms
+
+Test does create 5000 files with touch, then trashed them, list them and finally erases them.
