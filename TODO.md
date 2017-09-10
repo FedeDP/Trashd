@@ -10,5 +10,5 @@
 - [ ] add it to travis
 - [x] add a small test bash script
 - [ ] add a small c demo application
-- [ ] add COPYING file and gpl license header
+- [x] add COPYING file and gpl license header
 - [ ] Propose it as a standard implementation
