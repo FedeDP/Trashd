@@ -1,5 +1,7 @@
 # Trashd
 
+[![Build Status](https://travis-ci.org/FedeDP/Trashd.svg?branch=master)](https://travis-ci.org/FedeDP/Trashd)
+
 Linux bus user service to provide an implementation of freedesktop trash spec: https://specifications.freedesktop.org/trash-spec/trashspec-latest.html.  
 It aims to be used by file managers/DE as a DE agnostic, generic solution to manage trash.  
 
