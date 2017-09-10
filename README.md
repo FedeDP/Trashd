@@ -60,7 +60,7 @@ Trashd supports this kind of trash, ie: all methods will return Size, Length and
 ## Performance
 The (very simple) [test.sh](https://github.com/FedeDP/Trashd/blob/master/test.sh) script tries to understand Trashd performance.  
 It obviously computes performance on main user trash folder, that will surely be most used one.  
-Its result, on my pc, are the following:  
+Its results, on my pc, are the following:  
 
     ./test.sh 
     Files creation time: 6047 ms
@@ -68,4 +68,5 @@ Its result, on my pc, are the following:
     Listing time: 26 ms
     Erasing time: 120 ms
 
-Test does create 5000 files with touch, then trashed them, list them and finally erases them.
+Test does create 5000 files with touch, then trashed them, list them and finally erases them.  
+As you can see, most of the time is spent by "touch" to create files. Obviously these files are empty.
