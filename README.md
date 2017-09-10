@@ -17,12 +17,12 @@ If UDisks2 is not available, topdir support will not work, ie: Trashd will only 
 ### Methods
 | Name | IN | IN values | OUT | OUT values |
 |-|:-:|-|:-:|-|
-| Trash | as | Array of fullpaths to be moved to trash | as | Trashed files |
-| Erase | as | Array of trashed files fullpaths to be unlinked from fs | as | Erased files |
-| EraseAll | | | as | Erased files |
-| Restore | as | Array of trashed files fullpaths to be restored | as | Restored position for every file |
-| RestoreAll | | | as | Restored position for every file |
-| TrashDate | as | List of trashed file fullpaths | a(sbs) | Trashing dates for each file, or error string |
+| Trash | as | Array of fullpaths to be moved to trash | a(sbs) | Array of OUT struct |
+| Erase | as | Array of trashed files fullpaths to be unlinked from fs | a(sbs) | Array of OUT struct |
+| EraseAll | | | a(sbs) | Array of OUT struct |
+| Restore | as | Array of trashed files fullpaths to be restored | a(sbs) | Array of OUT struct |
+| RestoreAll | | | a(sbs) | Array of OUT struct |
+| TrashDate | as | List of trashed file fullpaths | a(sbs) | Array of OUT struct |
 | List | | | as | List of all trashed files |
 | Size | | | t | Current trash size in bytes |
 | Length | | | u | Current number of trashed elements |
@@ -39,7 +39,7 @@ This struct is:
 
 This way, for each input value, developer can know if any error happened by just parsing ok boolean value, and they can get a proper error string too.  
 Remember that Erase{All} methods will have output value as NULL, as it carries no informations if no error happens.  
-Path will be set in both case to any file erased path. In case of error, output will have string error value.
+Path will be set in both case to any file erased path. In case of error, output will have string error value.  
 
 ### Signals
 | Name | When | OUT | OUT values |
