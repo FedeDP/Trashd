@@ -63,7 +63,7 @@ int method_erase_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
         char glob_patt[PATH_MAX + 1] = {0};
     
         snprintf(glob_patt, PATH_MAX, "%s/*", trash[j].files_path);
-        glob(glob_patt, GLOB_MARK, NULL, &gl);
+        glob(glob_patt, GLOB_MARK | GLOB_NOSORT, NULL, &gl);
     
         for (int i = 0; i < gl.gl_pathc; i++) {
             if (rmrf(gl.gl_pathv[i], j) == 0) {

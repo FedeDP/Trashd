@@ -33,8 +33,9 @@ If UDisks2 is not available, topdir support will not work, ie: Trashd will only 
 | TrashChanged | A change happened in any watched trash | | |
 
 #### Explanation
-This signal are is to let FMs/DEs update their list of trashed files in their UI.  
+This signal is to let FMs/DEs update their list of trashed files in their UI.  
 When this signal is received, FMs will have to call "List" method to update their list of trashed files.
+The signal is sent whenever a file is trashed, erased, restored, or whenever a new trash topdir is discovered (ie: a new filesystem has been mounted).
 
 ## Topdirs support
 FMs implementing trashd interface should show a list of trashed files from all the mounted filesystems, plus the local one (home-trash).  

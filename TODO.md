@@ -1,14 +1,3 @@
 ## TODO
 
-### TOPDIR SUPPORT
-- [x] org.freedesktop.UDisks2.Manager.GetBlockDevices() + foreach block device -> get its mountpoint. If any, it means it is mounted.
-- [x] Monitor Udisks2 for mounted/unmounted device
-- [x] Load and call init_trash for each mounted fs
-- [x] Properly implement "Trash directories" spec
-- [x] Udisks2 monitor -> at every new mounted device, init_trash on it and send a TrashAdded signal with devpath
-- [x] Udisks2 monitor -> for every unmounted device, remove it from inotify and remove it from struct trash_dirs *trash, Send a TrashRemoved signal too.
-- [x] do not use devpath as key as it is not unique...
-- [x] drop all signals and inotify and just use TrashChanged
-- [X] return an error if no files could be trashed/erased/restored
-- [x] add a TrashDate method to retrieve date of trashing of a list of files
-- [x] fix: when removing an external drive, properly remove it from struct trash
+* Propose it as a standard implementation
