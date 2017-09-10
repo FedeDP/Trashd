@@ -4,66 +4,67 @@ static void load_dirs_cached_size(int index);
 static void find_trash_date(const char *path, int idx, char *date, size_t size);
 
 int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-    sd_bus_message *reply = NULL;
-    const char *path = NULL;
-    int r, size = 0;
-    
-    r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
+    int r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
     if (r >= 0) {
+        int size = 0;
+        sd_bus_message *reply = NULL;
+        const char *path = NULL;
+        
         sd_bus_message_new_method_return(m, &reply);
-        sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "s");
+        sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "(sbs)");
         
         while (sd_bus_message_read(m, "s", &path) > 0) {
+            char *err = NULL, trashed_p[PATH_MAX + 1] = {0};
+            
+            sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "sbs");
             int i = get_correct_topdir_idx(path);
             if (i == -1) {
                 fprintf(stderr, "Could not locate topdir: %s\n", path);
-                continue;
-            }
-            if (!strncmp(path, trash[i].files_path, strlen(trash[i].files_path))) {
+                err = strdup("Could not locate topdir.");
+            } else if (!strncmp(path, trash[i].files_path, strlen(trash[i].files_path))) {
                 fprintf(stderr, "Only not trashed files can be trashed: %s\n", trash[i].files_path);
-                continue;
-            }
-
-            char p[PATH_MAX + 1] = {0}, trashed_p[PATH_MAX + 1] = {0};
-            char *str = my_basename(p, PATH_MAX, path);
-            snprintf(trashed_p, PATH_MAX, "%s/%s", trash[i].files_path, str);
-            int len = strlen(trashed_p);
-            int num = 1;
-            while (access(trashed_p, F_OK) == 0) {
-                sprintf(trashed_p + len, " (%d)", num);
-                num++;
-            }
-            if (rename(path, trashed_p) == 0) {
-                str = my_basename(p, PATH_MAX, trashed_p);
-                if (update_info(path, str, i) == 0) {
-                    struct stat sb = {0};
-                    stat(trashed_p, &sb);
-                    if (S_ISDIR(sb.st_mode)) {
-                        update_directorysizes(str, trashed_p, i);
+                err = strdup("Only not trashed files can be trashed.");
+            } else {
+                char p[PATH_MAX + 1] = {0};
+                char *str = my_basename(p, PATH_MAX, path);
+                snprintf(trashed_p, PATH_MAX, "%s/%s", trash[i].files_path, str);
+                int len = strlen(trashed_p);
+                int num = 1;
+                while (access(trashed_p, F_OK) == 0) {
+                    sprintf(trashed_p + len, " (%d)", num);
+                    num++;
+                }
+                if (rename(path, trashed_p) == 0) {
+                    str = my_basename(p, PATH_MAX, trashed_p);
+                    if (update_info(path, str, i) == 0) {
+                        struct stat sb = {0};
+                        stat(trashed_p, &sb);
+                        if (S_ISDIR(sb.st_mode)) {
+                            update_directorysizes(str, trashed_p, i);
+                        }
+                        size++;
+                    } else {
+                        fprintf(stderr, "%s\n", strerror(errno));
+                        err = strdup(strerror(errno));
                     }
-                    sd_bus_message_append(reply, "s", trashed_p);
-                    size++;
                 } else {
                     fprintf(stderr, "%s\n", strerror(errno));
+                    err = strdup(strerror(errno));
                 }
-            } else {
-                fprintf(stderr, "%s\n", strerror(errno));
             }
+            sd_bus_message_append(reply, "sbs", path, !err, !err ? trashed_p : err);
+            sd_bus_message_close_container(reply);
+            free(err);
         }
+        sd_bus_message_close_container(reply);
+        r = sd_bus_send(NULL, reply, NULL);
+        if (size) {
+            sd_bus_emit_signal(bus, object_path, bus_interface, "TrashChanged", NULL);
+        }
+        sd_bus_message_unref(reply);
     } else {
         fprintf(stderr, "Failed to parse parameters: %s\n", strerror(-r));
-        return r;
     }
-    
-    sd_bus_message_close_container(reply);
-    if (size > 0) {
-        r = sd_bus_send(NULL, reply, NULL);
-        sd_bus_emit_signal(bus, object_path, bus_interface, "TrashChanged", NULL);
-    } else {
-        sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "No file could be trashed."); 
-        r = -ENOENT;
-    }
-    sd_bus_message_unref(reply);
     return r;
 }
 
@@ -147,11 +148,11 @@ int method_length(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
 }
 
 int method_trashdate(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-    const char *path = NULL;
-    sd_bus_message *reply = NULL;
-
     int r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
     if (r >= 0) {
+        const char *path = NULL;
+        sd_bus_message *reply = NULL;
+        
         sd_bus_message_new_method_return(m, &reply);
         sd_bus_message_open_container(reply, SD_BUS_TYPE_ARRAY, "(sbs)");
         
@@ -173,7 +174,7 @@ int method_trashdate(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
                     err = strdup("Could not locate trash date.");
                 }
             }
-            sd_bus_message_append(reply, "sbs", path, strlen(date), strlen(date) ? date : err);
+            sd_bus_message_append(reply, "sbs", path, !err, !err ? date : err);
             sd_bus_message_close_container(reply);
             free(err);
         }

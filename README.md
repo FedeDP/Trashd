@@ -37,7 +37,9 @@ This struct is:
         .output = string: ok ? "output value" : "error string" 
     }
 
-This way, for each input value, developer can know if any error happened by just parsing ok boolean value, and they can get a proper error string too.
+This way, for each input value, developer can know if any error happened by just parsing ok boolean value, and they can get a proper error string too.  
+Remember that Erase{All} methods will have output value as NULL, as it carries no informations if no error happens.  
+Path will be set in both case to any file erased path. In case of error, output will have string error value.
 
 ### Signals
 | Name | When | OUT | OUT values |

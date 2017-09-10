@@ -21,15 +21,15 @@ static int quit;
 static const sd_bus_vtable trashd_vtable[] = {
     SD_BUS_VTABLE_START(0),
     /* move array of fullpath to trash */
-    SD_BUS_METHOD("Trash", "as", "as", method_trash, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("Trash", "as", "a(sbs)", method_trash, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Completely delete array of elements (must already be present in trash) */
-    SD_BUS_METHOD("Erase", "as", "as", method_erase, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("Erase", "as", "a(sbs)", method_erase, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Completely delete every trashed file */
-    SD_BUS_METHOD("EraseAll", NULL, "as", method_erase_all, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("EraseAll", NULL, "a(sbs)", method_erase_all, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Restore array of elements to their original position */
-    SD_BUS_METHOD("Restore", "as", "as", method_restore, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("Restore", "as", "a(sbs)", method_restore, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Restore all trashed elements to their original position */
-    SD_BUS_METHOD("RestoreAll", NULL, "as", method_restore_all, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("RestoreAll", NULL, "a(sbs)", method_restore_all, SD_BUS_VTABLE_UNPRIVILEGED),
     /* Get trashing date of file */
     SD_BUS_METHOD("TrashDate", "as", "a(sbs)", method_trashdate, SD_BUS_VTABLE_UNPRIVILEGED),
     /* List all files in trash */

@@ -32,7 +32,7 @@ all: trashd clean
 debug: trashd-debug clean
 
 objects:
-	@cd $(SRCDIR); $(CC) -c *.c $(CFLAGS)
+	@cd $(SRCDIR); $(CC) -c *.c $(CFLAGS) -O3
 
 objects-debug:
 	@cd $(SRCDIR); $(CC) -c *.c -Wall $(CFLAGS) -Wshadow -Wtype-limits -Wstrict-overflow -fno-strict-aliasing -Wno-format -g
