@@ -7,7 +7,7 @@ BUSSERVICENAME = org.trash.trashd.service
 SYSTEMDSERVICE = trashd.service
 SYSTEMDDIR = /usr/lib/systemd/user
 EXTRADIR = Scripts
-EXAMPLEDIR = example
+SAMPLEDIR = sample
 RM = rm -f
 RMDIR = rm -rf
 INSTALL = install -p
@@ -32,9 +32,9 @@ all: trashd clean
 
 debug: trashd-debug clean
 
-example: SRCDIR=$(EXAMPLEDIR)
-example: BINNAME=example/example
-example: all
+sample: SRCDIR=$(SAMPLEDIR)
+sample: BINNAME=sample/sample
+sample: all
 
 objects:
 	@cd $(SRCDIR); $(CC) -c *.c $(CFLAGS) -O3

@@ -2,4 +2,4 @@
 .kdev4/
 trashd
 *.o
-example/example
+sample/sample
