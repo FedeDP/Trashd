@@ -41,6 +41,7 @@ int method_erase(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
             sd_bus_emit_signal(bus, object_path, bus_interface, "TrashChanged", NULL);
         }
         sd_bus_message_unref(reply);
+        sd_bus_message_exit_container(m);
     } else {
         fprintf(stderr, "Failed to parse parameters: %s\n", strerror(-r));
     }

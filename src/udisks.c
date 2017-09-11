@@ -98,6 +98,7 @@ void load_trashes(void) {
                 }
                 free(mp);
             }
+            sd_bus_message_exit_container(mess);
         }
     }
     free_bus_struct(&error, mess);

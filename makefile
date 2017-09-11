@@ -7,6 +7,7 @@ BUSSERVICENAME = org.trash.trashd.service
 SYSTEMDSERVICE = trashd.service
 SYSTEMDDIR = /usr/lib/systemd/user
 EXTRADIR = Scripts
+EXAMPLEDIR = example
 RM = rm -f
 RMDIR = rm -rf
 INSTALL = install -p
@@ -30,6 +31,10 @@ TRASHD_VERSION = $(shell git describe --abbrev=0 --always --tags)
 all: trashd clean
 
 debug: trashd-debug clean
+
+example: SRCDIR=$(EXAMPLEDIR)
+example: BINNAME=example/example
+example: all
 
 objects:
 	@cd $(SRCDIR); $(CC) -c *.c $(CFLAGS) -O3

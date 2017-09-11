@@ -6,7 +6,7 @@ Linux bus user service to provide an implementation of freedesktop trash spec: h
 It aims to be used by file managers/DE as a DE agnostic, generic solution to manage trash.  
 
 ## Build
-It only depends on libsystemd (systemd/sd-bus.h).  
+It only depends on libsystemd (systemd/sd-bus.h) and libudev (libudev.h).  
 
     $ make
     # make install
