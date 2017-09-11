@@ -104,7 +104,7 @@ static void load_dirs_cached_size(int index) {
         char name[NAME_MAX + 1] = {0};
         unsigned long int t, size;
         while (!feof(f)) {
-            if (fscanf(f, "%lu %lu %s\n", &size, &t, name) == 3) {
+            if (fscanf(f, "%lu %lu %255s\n", &size, &t, name) == 3) {
                 total_size += size;
             }
         }

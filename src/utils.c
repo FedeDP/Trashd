@@ -22,8 +22,7 @@ char *my_basename(char *buff, int size, const char *str) {
  * Returns error (-1) if it cannot create needed dirs.
  */
 int init_trash(const char *root, const char *devpath, int external) {
-    struct trash_dir *tmp = NULL;
-    tmp = realloc(trash, (++num_topdir) * sizeof(struct trash_dir));
+    struct trash_dir *tmp = realloc(trash, (++num_topdir) * sizeof(struct trash_dir));
     if (tmp) {
         trash = tmp;
         /* Init trash path to root */

@@ -115,10 +115,13 @@ static void trash_files(int len, char to_be_trashed[][PATH_MAX + 1], int *size) 
                 if (sd_bus_message_read(reply, "sbs", &path, &ok, &output) > 0) {
                     if (ok) {
                         // file trashed with no errors
-                        (*size)++;
                         printf("Trashed %s in %s.\n", path, output);
-                        restored_files = realloc(restored_files, sizeof(char *) * (*size));
-                        restored_files[*size - 1] = strdup(output);
+                        char **tmp = realloc(restored_files, sizeof(char *) * ((*size) + 1));
+                        if (tmp) {
+                            restored_files = tmp;
+                            restored_files[*size] = strdup(output);
+                            (*size)++;
+                        }
                     } else {
                         // file not trashed; print error
                         fprintf(stderr, "%s\n", output);
