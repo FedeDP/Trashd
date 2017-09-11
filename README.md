@@ -70,3 +70,6 @@ Its results, on my pc with SSD, are the following:
 
 Test does create 5000 files with touch, then trashed them, list them and finally erases them.  
 As you can see, most of the time is spent by "touch" to create files. Obviously these files are empty.
+
+## Sample code
+In [sample](https://github.com/FedeDP/Trashd/blob/master/sample) folder, you can find a small C sample using sd-bus library.
