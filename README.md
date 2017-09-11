@@ -60,7 +60,7 @@ Trashd supports this kind of trash, ie: all methods will return Size, Length and
 ## Performance
 The (very simple) [test.sh](https://github.com/FedeDP/Trashd/blob/master/test.sh) script tries to understand Trashd performance.  
 It obviously computes performance on main user trash folder, that will surely be most used one.  
-Its results, on my pc, are the following:  
+Its results, on my pc with SSD, are the following:  
 
     ./test.sh 
     Files creation time: 6047 ms

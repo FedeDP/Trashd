@@ -105,7 +105,7 @@ static int create_if_needed(const char *name, const int mode, int external, char
         }
         /* If external trash, check sticky bit */
         if (external && !strcmp(name, "Trash") && !(sb.st_mode & S_ISVTX)) {
-            fprintf(stderr, "%s has not sticky bit.\n", path);
+            fprintf(stderr, "%s has not sticky bit setted. Avoid using it.\n", path);
             return -1;
         }
         goto ok;

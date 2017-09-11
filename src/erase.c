@@ -99,11 +99,11 @@ static int rmrf(const char *path, int index) {
         char *s = my_basename(p, PATH_MAX, path);
         snprintf(rm_p, PATH_MAX, "%s/%s.trashinfo", trash[index].info_path, s);
         ret = remove(rm_p);
-    }
-    
-    if (ret == 0 && dir) {
-        /* Remove line from directorysizes file */
-        remove_line_from_directorysizes(path, index);
+
+        if (ret == 0 && dir) {
+            /* Remove line from directorysizes file */
+            remove_line_from_directorysizes(path, index);
+        }
     }
     return ret;
 }
