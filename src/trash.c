@@ -121,7 +121,7 @@ int method_size(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         glob_t gl = {0};
         
         snprintf(glob_patt, PATH_MAX, "%s/*", trash[j].files_path);
-        glob(glob_patt, GLOB_MARK | GLOB_NOSORT, NULL, &gl);
+        glob(glob_patt, GLOB_NOSORT, NULL, &gl);
         for (int i = 0; i < gl.gl_pathc; i++) {
             struct stat sb = {0};
             stat(gl.gl_pathv[i], &sb);

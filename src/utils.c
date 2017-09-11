@@ -173,28 +173,26 @@ int update_info(const char *oldpath, const char *newname, int index) {
  * and remove its line.
  */
 void remove_line_from_directorysizes(const char *path, int index) {
-    struct stat sb = {0};
-    stat(path, &sb);
-    if (!S_ISDIR(sb.st_mode)) {
-        return;
-    }
-    
-    int ok = 0;
     char p[PATH_MAX + 1] = {0};
+    
     snprintf(p, PATH_MAX, "%s/directorysizes", trash[index].trash_path);
     FILE *f = fopen(p, "r");
     if (f) {
+        int ok = 0;
         char ptmp[PATH_MAX + 1] = {0};
+        
         snprintf(ptmp, PATH_MAX, "%s/directorysizes.tmp", trash[index].trash_path);
         FILE *ftmp = fopen(ptmp, "w");
         
         if (ftmp) {
             ok = 1;
-            char name[NAME_MAX + 1] = {0};
+            char name[NAME_MAX + 1] = {0}, real_p[PATH_MAX + 1] = {0};
             unsigned long int t, size;
+
+            realpath(path, real_p); // canonicalize path
             while (!feof(f)) {
                 fscanf(f, "%lu %lu %255s\n", &size, &t, name);
-                if (strcmp(name, strrchr(path, '/') + 1)) {
+                if (strcmp(name, strrchr(real_p, '/') + 1)) {
                     fprintf(ftmp, "%lu %lu %s\n", size, t, name);
                 }
             }
@@ -208,6 +206,14 @@ void remove_line_from_directorysizes(const char *path, int index) {
             rename(ptmp, p);
         }
     }
+}
+
+int is_dir(const char *path) {
+    struct stat sb = {0};
+    if (stat(path, &sb) == -1) {
+        return -1;
+    }
+    return S_ISDIR(sb.st_mode);
 }
 
 /*

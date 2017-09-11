@@ -1,6 +1,7 @@
 #include "../inc/restore.h"
+#include "../inc/utils.h"
 
-static int restore(char *restored_path, sd_bus_message *reply, int idx);
+static int restore(char *filepath, int idx);
 
 int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     int r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
@@ -16,6 +17,7 @@ int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
             char *err = NULL, restored_p[PATH_MAX + 1] = {0};
             
             sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "sbs");
+            
             int j = get_correct_topdir_idx(path);
             if (j == -1) {
                 fprintf(stderr, "Could not locate topdir: %s\n", path);
@@ -24,10 +26,8 @@ int method_restore(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 fprintf(stderr, "Only trashed files can be restored: %s\n", trash[j].files_path);
                 err = strdup("Only trashed files can be restored.");
             } else {
-                char p[PATH_MAX + 1] = {0};
-                char *s = my_basename(p, PATH_MAX, path);
-                snprintf(restored_p, PATH_MAX, "%s/%s.trashinfo", trash[j].info_path, s);
-                int ret = restore(restored_p, reply, j);
+                strncpy(restored_p, path, PATH_MAX);
+                int ret = restore(restored_p, j);
                 if (ret) {
                     fprintf(stderr, "%s\n", strerror(ret));
                     err = strdup(strerror(ret));
@@ -63,27 +63,23 @@ int method_restore_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
         glob_t gl = {0};
         char glob_patt[PATH_MAX + 1] = {0};
     
-        snprintf(glob_patt, PATH_MAX, "%s/*", trash[j].info_path);
-        glob(glob_patt, GLOB_MARK | GLOB_NOSORT, NULL, &gl);
+        snprintf(glob_patt, PATH_MAX, "%s/*", trash[j].files_path);
+        glob(glob_patt, GLOB_NOSORT, NULL, &gl);
     
         for (int i = 0; i < gl.gl_pathc; i++) {
             char *err = NULL, restored_p[PATH_MAX + 1] = {0};
             
             sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "sbs");
-            int idx = get_correct_topdir_idx(gl.gl_pathv[i]);
-            if (idx == -1) {
-                fprintf(stderr, "Could not locate topdir: %s\n", gl.gl_pathv[i]);
-                err = strdup("Could not locate topdir.");
+            
+            strncpy(restored_p, gl.gl_pathv[i], PATH_MAX);
+            int ret = restore(restored_p, j);
+            if (ret) {
+                fprintf(stderr, "%s\n", strerror(ret));
+                err = strdup(strerror(ret));
             } else {
-                strncpy(restored_p, gl.gl_pathv[i], PATH_MAX);
-                int ret = restore(restored_p, reply, idx);
-                if (ret) {
-                    fprintf(stderr, "%s\n", strerror(ret));
-                    err = strdup(strerror(ret));
-                } else {
-                    size++;
-                }
+                size++;
             }
+            
             sd_bus_message_append(reply, "sbs", gl.gl_pathv[i], !err, !err ? restored_p : err);
             sd_bus_message_close_container(reply);
             free(err);
@@ -100,23 +96,17 @@ int method_restore_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
     return r;
 }
 
-static int restore(char *restored_path, sd_bus_message *reply, int idx) {
+static int restore(char *filepath, int idx) {
     int ret = 0;
     
-    char p[PATH_MAX + 1] = {0};
-    char *s = my_basename(p, PATH_MAX, restored_path);
-    char fullpath[PATH_MAX + 1] = {0};
-
-    snprintf(fullpath, PATH_MAX, "%s/%s", trash[idx].files_path, s);
+    char p[PATH_MAX + 1] = {0}, infopath[PATH_MAX + 1] = {0};
+    char *s = my_basename(p, PATH_MAX, filepath);
+    snprintf(infopath, PATH_MAX, "%s/%s.trashinfo", trash[idx].info_path, s);
         
-    /* Remove .trashinfo extension */
-    char *ptr = strstr(fullpath, ".trashinfo");
-    if (ptr) {
-        *ptr = '\0';
-    }
-        
-    FILE *f = fopen(restored_path, "r");
+    FILE *f = fopen(infopath, "r");
     if (f) {
+        int dir = is_dir(filepath);
+        
         char old_path[PATH_MAX + 1] = {0};
         fscanf(f, "%*[^\n]\n"); // jump first line
         
@@ -124,19 +114,22 @@ static int restore(char *restored_path, sd_bus_message *reply, int idx) {
         snprintf(format, sizeof(format), "Path=%%%ds\n", PATH_MAX);
 
         fscanf(f, format, old_path);
-        if (rename(fullpath, old_path) == -1) {
+                
+        if (rename(filepath, old_path) == -1) {
             ret = errno;
         }
         fclose(f);
             
         /* Remove .trashinfo file */
-        remove(restored_path);
-            
+        remove(infopath);
+        
         /* Remove line from directorysizes file */
-        remove_line_from_directorysizes(fullpath, idx);
+        if (dir) {
+            remove_line_from_directorysizes(filepath, idx);
+        }
         
         /* Return correct restored path for this file */
-        strncpy(restored_path, old_path, PATH_MAX);
+        strncpy(filepath, old_path, PATH_MAX);
     } else {
         ret = errno;
     }
