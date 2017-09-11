@@ -37,9 +37,7 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 if (rename(path, trashed_p) == 0) {
                     str = my_basename(p, PATH_MAX, trashed_p);
                     if (update_info(path, str, i) == 0) {
-                        struct stat sb = {0};
-                        stat(trashed_p, &sb);
-                        if (S_ISDIR(sb.st_mode)) {
+                        if (is_dir(trashed_p)) {
                             update_directorysizes(str, trashed_p, i);
                         }
                         size++;
