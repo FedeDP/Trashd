@@ -15,43 +15,40 @@ static const char *trashed_files[] = { "trash1.txt", "trash2.txt", "not_existent
 static char **restored_files;
 
 int main(void) {
-    int r = sd_bus_default_user(&bus);
-    if (r < 0) {
-        fprintf(stderr, "Failed to connect to system bus: %s\n", strerror(-r));
-        exit(EXIT_FAILURE);
+    sd_bus_default_user(&bus);
+    
+    /* Hook our function to TrashChanged signal */
+    sd_bus_add_match(bus, NULL, "type='signal', sender='org.trash.trashd', interface='org.trash.trashd', path='/org/trash/trashd', member='TrashChanged'", on_trash_update, NULL);
+    
+    /* Initial sd_bus_process */
+    sd_bus_process(bus, NULL);
+        
+    /* Print initial trash list of files */
+    on_trash_update(NULL, NULL, NULL);
+    
+    /* Create correct path to trashed_files list */
+    char to_be_trashed[SIZE(trashed_files)][PATH_MAX + 1] = {{0}};
+    char *cwd = getcwd(NULL, 0);
+    for (int i = 0; i < SIZE(trashed_files); i++) {
+        snprintf(to_be_trashed[i], PATH_MAX, "%s/%s", cwd, trashed_files[i]);
     }
+    free(cwd);
+        
+    int size = 0;
+    trash_files(SIZE(trashed_files), to_be_trashed, &size);
+        
+    sd_bus_wait(bus, (uint64_t) -1);
+    sd_bus_process(bus, NULL);
     
-    r = sd_bus_add_match(bus, NULL, "type='signal', sender='org.trash.trashd', interface='org.trash.trashd', path='/org/trash/trashd', member='TrashChanged'", on_trash_update, NULL);
-    if (r < 0) {
-        fprintf(stderr, "Failed to add match on bus: %s\n", strerror(-r));
-    } else {
-        sd_bus_process(bus, NULL);
-        
-        /* Print initial trash list of files */
-        on_trash_update(NULL, NULL, NULL);
-        
-        char to_be_trashed[SIZE(trashed_files)][PATH_MAX + 1] = {{0}};
-        char *cwd = getcwd(NULL, 0);
-        for (int i = 0; i < SIZE(trashed_files); i++) {
-            snprintf(to_be_trashed[i], PATH_MAX, "%s/%s", cwd, trashed_files[i]);
+    if (size > 0) {
+        restore_files(size);
+        for (int i = 0; i < size; i++) {
+            free(restored_files[i]);
         }
-        free(cwd);
+        free(restored_files);
         
-        int size = 0;
-        trash_files(SIZE(trashed_files), to_be_trashed, &size);
-        sleep(1);
+        sd_bus_wait(bus, (uint64_t) -1);
         sd_bus_process(bus, NULL);
-    
-        if (size > 0) {
-            printf("Restoring %d files...\n", size);
-            restore_files(size);
-            for (int i = 0; i < size; i++) {
-                free(restored_files[i]);
-            }
-            free(restored_files);
-            sleep(1);
-            sd_bus_process(bus, NULL);
-        }
     }
 
     sd_bus_flush_close_unref(bus);
@@ -73,18 +70,18 @@ static int on_trash_update(sd_bus_message *m, void *userdata, sd_bus_error *ret_
     if (r < 0) {
         fprintf(stderr, "%s\n", error.message);
     } else {
-        printf("Trash:\n");
+        printf("Trash:\t[\n");
         r = sd_bus_message_enter_container(mess, SD_BUS_TYPE_ARRAY, "s");
         if (r < 0) {
             fprintf(stderr, "%s\n", strerror(-r));
         } else {
             const char *path = NULL;
             while ((sd_bus_message_read(mess, "s", &path)) > 0) {
-                printf("# %s\n", strrchr(path, '/') + 1);
+                printf("\t\t%s\n", strrchr(path, '/') + 1);
             }
             sd_bus_message_exit_container(mess);
         }
-        printf("\n");
+        printf("\t]\n\n");
     }
     sd_bus_message_unref(mess);
     sd_bus_error_free(&error);
@@ -115,7 +112,7 @@ static void trash_files(int len, char to_be_trashed[][PATH_MAX + 1], int *size) 
                 if (sd_bus_message_read(reply, "sbs", &path, &ok, &output) > 0) {
                     if (ok) {
                         // file trashed with no errors
-                        printf("Trashed %s in %s.\n", path, output);
+                        printf("* Trashed %s in %s.\n", path, output);
                         char **tmp = realloc(restored_files, sizeof(char *) * ((*size) + 1));
                         if (tmp) {
                             restored_files = tmp;
@@ -124,7 +121,7 @@ static void trash_files(int len, char to_be_trashed[][PATH_MAX + 1], int *size) 
                         }
                     } else {
                         // file not trashed; print error
-                        fprintf(stderr, "%s\n", output);
+                        fprintf(stderr, "# %s\n", output);
                     }
                 }
                 sd_bus_message_exit_container(reply);
@@ -162,7 +159,7 @@ static void restore_files(int size) {
                 if (sd_bus_message_read(reply, "sbs", &path, &ok, &output) > 0) {
                     if (ok) {
                         // file restored with no errors
-                        printf("Restored %s.\n", output);
+                        printf("* Restored %s.\n", output);
                     } else {
                         // file not restored; print error
                         fprintf(stderr, "%s\n", output);

@@ -33,7 +33,7 @@ all: trashd clean
 debug: trashd-debug clean
 
 sample: SRCDIR=$(SAMPLEDIR)
-sample: BINNAME=sample/sample
+sample: BINNAME=$(SAMPLEDIR)/sample
 sample: all
 
 objects:
