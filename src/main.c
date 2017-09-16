@@ -127,23 +127,20 @@ static void main_poll(void) {
             quit = LEAVE_W_ERR;
         }
         
-        while (r > 0 && !quit) {
-            for (int i = 0; i < POLL_SIZE; i++) {
-                if (main_p[i].revents & POLLIN) {
-                    switch (i) {
-                    case BUS:
-                        bus_cb(bus);
-                        break;
-                    case SIGNAL:
-                        signal_cb();
-                        break;
-                    case UDISKS:
-                        bus_cb(get_udisks_bus());
-                        break;
-                    }
-                    r--;
+        for (int i = 0; i < POLL_SIZE && r > 0; i++) {
+            if (main_p[i].revents & POLLIN) {
+                switch (i) {
+                case BUS:
+                    bus_cb(bus);
+                    break;
+                case SIGNAL:
+                    signal_cb();
+                    break;
+                case UDISKS:
+                    bus_cb(get_udisks_bus());
                     break;
                 }
+                r--;
             }
         }
     }

@@ -1,6 +1,7 @@
 # Trashd
 
 [![Build Status](https://travis-ci.org/FedeDP/Trashd.svg?branch=master)](https://travis-ci.org/FedeDP/Trashd)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/032c66c7f6624e4e954168355c1648fa)](https://www.codacy.com/app/FedeDP/Trashd?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=FedeDP/Trashd&amp;utm_campaign=Badge_Grade)
 
 Linux bus user service to provide an implementation of freedesktop trash spec: https://specifications.freedesktop.org/trash-spec/trashspec-latest.html.  
 It aims to be used by file managers/DE as a DE agnostic, generic solution to manage trash.  
@@ -63,13 +64,18 @@ It obviously computes performance on main user trash folder, that will surely be
 Its results, on my pc with SSD, are the following:  
 
     ./test.sh 
-    Files creation time: 6047 ms
-    Trashing time: 454 ms
-    Listing time: 26 ms
-    Erasing time: 120 ms
+    Files creation time: 274 ms
+    Trashing time: 49 ms
+    Number of trashed files: u 500
+    Listing time: 6 ms
+    Erasing time: 18 ms
+    Number of trashed files: u 0
 
-Test does create 5000 files with touch, then trashed them, list them and finally erases them.  
-As you can see, most of the time is spent by "touch" to create files. Obviously these files are empty.
+
+Test does create 500 files with touch, then trashes them, lists them and finally erases them. Obviously these files are empty.  
+As you can see most of the time is spent creating files. Beware that with many more files (eg: 5000 or 10000) it seems bus connection hangs and then times out, even if files are properly trashed/erased/listed.  
+This is a weird issue given that Trashd is not hanging anywhere; it seems like a busctl limit.  
+In fact, when adding "--expect-reply=false" flag to busctl, operations are instantaneous.
 
 ## Sample code
 In [sample](https://github.com/FedeDP/Trashd/blob/master/sample) folder, you can find a small C sample using sd-bus library.

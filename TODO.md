@@ -8,4 +8,5 @@
 - [x] add COPYING file and gpl license header
 - [x] FIX: RestoreAll should return as path correct trashed filepath, not trashed info path
 - [x] FIX: remove_line_from_directorysizes in case user passes a string with final "/"
+- [ ] always check for Trash folder to exist, and create it if needed. Not only during startup.
 - [ ] Propose it as a standard implementation
