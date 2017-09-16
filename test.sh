@@ -13,19 +13,19 @@ echo "Files creation time: $t ms"
 
 t=$(($(date +%s%N)/1000000))
 busctl --quiet --user call org.trash.trashd /org/trash/trashd org.trash.trashd Trash "as" $size $(realpath $files_list)
-t=$(((($(date +%s%N)/1000000))-t))
+t=$(($(date +%s%N)/1000000-t))
 echo "Trashing time: $t ms"
 
 echo "Number of trashed files: $(busctl --user call org.trash.trashd /org/trash/trashd org.trash.trashd Length)"
 
 t=$(($(date +%s%N)/1000000))
 busctl --quiet --user call org.trash.trashd /org/trash/trashd org.trash.trashd List
-t=$(((($(date +%s%N)/1000000))-t))
+t=$(($(date +%s%N)/1000000-t))
 echo "Listing time: $t ms"
 
 t=$(($(date +%s%N)/1000000))
 busctl --quiet --user call org.trash.trashd /org/trash/trashd org.trash.trashd EraseAll
-t=$(((($(date +%s%N)/1000000))-t))
+t=$(($(date +%s%N)/1000000-t))
 echo "Erasing time: $t ms"
 
 echo "Number of trashed files: $(busctl --user call org.trash.trashd /org/trash/trashd org.trash.trashd Length)"
