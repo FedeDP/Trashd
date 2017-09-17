@@ -114,20 +114,19 @@ static int restore(char *filepath, int idx) {
         snprintf(format, sizeof(format), "Path=%%%ds\n", PATH_MAX);
 
         fscanf(f, format, old_path);
-                
-        if (rename(filepath, old_path) == -1) {
-            ret = errno;
-        }
         fclose(f);
+        
+        if (my_rename(filepath, old_path, sizeof(old_path)) == -1) {
+            ret = errno;
+        } else {
+            /* Remove .trashinfo file */
+            remove(infopath);
             
-        /* Remove .trashinfo file */
-        remove(infopath);
-        
-        /* Remove line from directorysizes file */
-        if (dir) {
-            remove_line_from_directorysizes(filepath, idx);
+            /* Remove line from directorysizes file */
+            if (dir) {
+                remove_line_from_directorysizes(filepath, idx);
+            }
         }
-        
         /* Return correct restored path for this file */
         strncpy(filepath, old_path, PATH_MAX);
     } else {

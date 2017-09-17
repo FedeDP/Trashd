@@ -28,13 +28,7 @@ int method_trash(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
                 char p[PATH_MAX + 1] = {0};
                 char *str = my_basename(p, PATH_MAX, path);
                 snprintf(trashed_p, PATH_MAX, "%s/%s", trash[i].files_path, str);
-                int len = strlen(trashed_p);
-                int num = 1;
-                while (access(trashed_p, F_OK) == 0) {
-                    sprintf(trashed_p + len, " (%d)", num);
-                    num++;
-                }
-                if (rename(path, trashed_p) == 0) {
+                if (my_rename(path, trashed_p, sizeof(trashed_p)) == 0) {
                     str = my_basename(p, PATH_MAX, trashed_p);
                     if (update_info(path, str, i) == 0) {
                         if (is_dir(trashed_p)) {

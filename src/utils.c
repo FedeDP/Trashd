@@ -189,7 +189,7 @@ void remove_line_from_directorysizes(const char *path, int index) {
             unsigned long int t, size;
 
             realpath(path, real_p); // canonicalize path
-            while (!feof(f) && fscanf(f, "%lu %lu %255s\n", &size, &t, name) == 3) {
+            while (fscanf(f, "%lu %lu %255s\n", &size, &t, name) == 3) {
                 if (strcmp(name, strrchr(real_p, '/') + 1)) {
                     fprintf(ftmp, "%lu %lu %s\n", size, t, name);
                 }
@@ -212,6 +212,16 @@ int is_dir(const char *path) {
         return -1;
     }
     return S_ISDIR(sb.st_mode);
+}
+
+int my_rename(const char *orig, char *newname, const size_t size) {
+    int len = strlen(newname);
+    int num = 1;
+    while (access(newname, F_OK) == 0) {
+        snprintf(newname + len, size - len - 1, " (%d)", num);
+        num++;
+    }
+    return rename(orig, newname);
 }
 
 /*
