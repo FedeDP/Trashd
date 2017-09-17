@@ -33,24 +33,29 @@ int main(void) {
         snprintf(to_be_trashed[i], PATH_MAX, "%s/%s", cwd, trashed_files[i]);
     }
     free(cwd);
-        
+    
+    /* Trash files and store real number of trashed files */
     int size = 0;
     trash_files(SIZE(trashed_files), to_be_trashed, &size);
-        
+    
+    /* Process incoming "TrashChanged" signal */
     sd_bus_wait(bus, (uint64_t) -1);
     sd_bus_process(bus, NULL);
     
     if (size > 0) {
+        /* Restore any trashed file */
         restore_files(size);
+        
+        /* Free allocated mem */
         for (int i = 0; i < size; i++) {
             free(restored_files[i]);
         }
         free(restored_files);
         
+        /* Process incoming "TrashChanged" signal */
         sd_bus_wait(bus, (uint64_t) -1);
         sd_bus_process(bus, NULL);
     }
-
     sd_bus_flush_close_unref(bus);
     return 0;
 }
