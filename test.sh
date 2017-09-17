@@ -8,7 +8,7 @@ for ((i=1; i<=size; i++)); do
     touch "test$i"
     files_list+="test$i "
 done
-t=$(($(($(date +%s%N)/1000000))-$t))
+t=$(($(date +%s%N)/1000000-t))
 echo "Files creation time: $t ms"
 
 t=$(($(date +%s%N)/1000000))
