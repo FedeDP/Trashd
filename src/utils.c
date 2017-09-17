@@ -189,8 +189,7 @@ void remove_line_from_directorysizes(const char *path, int index) {
             unsigned long int t, size;
 
             realpath(path, real_p); // canonicalize path
-            while (!feof(f)) {
-                fscanf(f, "%lu %lu %255s\n", &size, &t, name);
+            while (!feof(f) && fscanf(f, "%lu %lu %255s\n", &size, &t, name) == 3) {
                 if (strcmp(name, strrchr(real_p, '/') + 1)) {
                     fprintf(ftmp, "%lu %lu %s\n", size, t, name);
                 }
