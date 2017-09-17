@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/FedeDP/Trashd.svg?branch=master)](https://travis-ci.org/FedeDP/Trashd)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/032c66c7f6624e4e954168355c1648fa)](https://www.codacy.com/app/FedeDP/Trashd?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=FedeDP/Trashd&amp;utm_campaign=Badge_Grade)
 
-Linux bus user service to provide an implementation of freedesktop trash spec: https://specifications.freedesktop.org/trash-spec/trashspec-latest.html.  
+Linux bus user service that provides an implementation of freedesktop trash spec: https://specifications.freedesktop.org/trash-spec/trashspec-latest.html.  
 It aims to be used by file managers/DE as a DE agnostic, generic solution to manage trash.  
 
 ## Build
@@ -15,6 +15,9 @@ It only depends on libsystemd (systemd/sd-bus.h) and libudev (libudev.h).
 ## Runtime dep
 Top directories trashing support requires UDisks2 available at runtime. This is needed to react to newly mounted filesystems.  
 If UDisks2 is not available, topdir support will not work, ie: Trashd will only support home trash.  
+
+## Availability
+Trashd is available for Archlinux users in AUR: https://aur.archlinux.org/packages/trashd-git/.  
 
 ## Interface
 ### Methods

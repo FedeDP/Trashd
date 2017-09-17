@@ -1,7 +1,7 @@
 ## TODO
 
 - [ ] Make it deb available
-- [ ] Add it to aur
+- [x] Add it to aur
 - [x] add it to travis
 - [x] add a small test bash script
 - [x] add a small c demo application
