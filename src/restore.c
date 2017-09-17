@@ -109,11 +109,8 @@ static int restore(char *filepath, int idx) {
         
         char old_path[PATH_MAX + 1] = {0};
         fscanf(f, "%*[^\n]\n"); // jump first line
+        fscanf(f, "Path=%4096s\n", old_path);
         
-        char format[32] = {0};
-        snprintf(format, sizeof(format), "Path=%%%ds\n", PATH_MAX);
-
-        fscanf(f, format, old_path);
         fclose(f);
         
         if (my_rename(filepath, old_path, sizeof(old_path)) == -1) {
