@@ -81,4 +81,4 @@ This is a weird issue given that Trashd is not hanging anywhere; it seems like a
 In fact, when adding "--expect-reply=false" flag to busctl, operations are instantaneous.
 
 ## Sample code
-In [sample](https://github.com/FedeDP/Trashd/blob/master/sample) folder, you can find a small C sample using sd-bus library.
+In [Sample](https://github.com/FedeDP/Trashd/blob/master/Sample) folder, you can find a small C sample using sd-bus library.

@@ -92,7 +92,6 @@ static int rmrf(const char *path, int index) {
     
     /* remove file */
     int ret = nftw(path, recursive_remove, 64, FTW_DEPTH | FTW_PHYS | FTW_MOUNT);
-    
     if (ret == 0) {
         /* remove trashinfo file */
         char p[PATH_MAX + 1] = {0}, rm_p[PATH_MAX + 1] = {0};
