@@ -82,7 +82,7 @@ static int on_trash_update(sd_bus_message *m, void *userdata, sd_bus_error *ret_
         } else {
             const char *path = NULL;
             while ((sd_bus_message_read(mess, "s", &path)) > 0) {
-                printf("\t\t%s\n", strrchr(path, '/') + 1);
+                printf("\t\t%s\n", path);
             }
             sd_bus_message_exit_container(mess);
         }
