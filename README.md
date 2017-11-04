@@ -23,12 +23,12 @@ Trashd is available for Archlinux users in AUR: https://aur.archlinux.org/packag
 ### Methods
 | Name | IN | IN values | OUT | OUT values |
 |-|:-:|-|:-:|-|
-| Trash | as | Array of fullpaths to be moved to trash | a(sbs) | Array of OUT struct |
-| Erase | as | Array of trashed files fullpaths to be unlinked from fs | a(sbs) | Array of OUT struct |
-| EraseAll | | | a(sbs) | Array of OUT struct |
-| Restore | as | Array of trashed files fullpaths to be restored | a(sbs) | Array of OUT struct |
-| RestoreAll | | | a(sbs) | Array of OUT struct |
-| TrashDate | as | List of trashed file fullpaths | a(sbs) | Array of OUT struct |
+| Trash | as | Array of fullpaths to be moved to trash | a(sbs) | Array of [OUT structs](https://github.com/FedeDP/Trashd#out-struct) |
+| Erase | as | Array of trashed files fullpaths to be unlinked from fs | a(sbs) | Array of [OUT structs](https://github.com/FedeDP/Trashd#out-struct) |
+| EraseAll | | | a(sbs) | Array of [OUT structs](https://github.com/FedeDP/Trashd#out-struct) |
+| Restore | as | Array of trashed files fullpaths to be restored | a(sbs) | Array of [OUT structs](https://github.com/FedeDP/Trashd#out-struct) |
+| RestoreAll | | | a(sbs) | Array of [OUT structs](https://github.com/FedeDP/Trashd#out-struct) |
+| TrashDate | as | List of trashed file fullpaths | a(sbs) | Array of [OUT structs](https://github.com/FedeDP/Trashd#out-struct) |
 | List | | | as | List of all trashed files |
 | Size | | | t | Current trash size in bytes |
 | Length | | | u | Current number of trashed elements |
